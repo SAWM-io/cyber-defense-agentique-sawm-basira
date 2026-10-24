@@ -109,6 +109,8 @@ def main():
     REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps({k: report[k] for k in ("status", "tests_run", "failures_count", "errors_count",
                                            "sources_unchanged_during_run")}, ensure_ascii=False))
+    for failure in report["failures"]:
+        print(json.dumps(failure, ensure_ascii=False))
     print(REPORT)
     return 0 if result.wasSuccessful() else 1
 
