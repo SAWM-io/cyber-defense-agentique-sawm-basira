@@ -1,0 +1,24 @@
+[Unit]
+Description=SAWM analyse d'integrite des gros dossiers explicitement enroles (staging)
+ConditionPathExists=/opt/sawm-labo/config/large-tree-staging.json
+
+[Service]
+Type=oneshot
+Slice=sawm-defense.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/agent/large_tree.py --config /opt/sawm-labo/config/large-tree-staging.json
+TimeoutStartSec=360
+MemoryMax=192M
+CPUQuota=50%
+Nice=15
+IOSchedulingClass=idle
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RuntimeDirectory=sawm-large-tree
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+ReadWritePaths=/run/sawm-large-tree
+UMask=0077
+# Déclenchement explicite ; aucun timer ni confinement automatique.

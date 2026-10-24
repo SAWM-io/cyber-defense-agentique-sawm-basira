@@ -1,0 +1,10 @@
+[Unit]
+Description=Copie bornée de documents du laboratoire
+[Service]
+Slice=sawm-charge.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/charges_test/transfert.py --source-id source-b --run-id continue-20260922T152310 --bytes 16777216 --duration 90 --rate-bps 131072
+Restart=no
+RuntimeMaxSec=95
+MemoryMax=128M
+CPUQuota=30%
+TimeoutStopSec=3

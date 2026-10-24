@@ -1,0 +1,12 @@
+[Unit]
+Description=Lecteur de la base synthetique surveillee
+[Service]
+Slice=sawm-charge.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/charges_test/ledger_temoin.py
+Restart=on-failure
+RestartSec=2
+MemoryMax=64M
+CPUQuota=10%
+UMask=0077
+[Install]
+WantedBy=multi-user.target

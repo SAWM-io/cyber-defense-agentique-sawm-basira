@@ -1,0 +1,11 @@
+[Unit]
+Description=Politique de refus LSM du laboratoire (crochets noyau eBPF)
+After=sys-fs-bpf.mount
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Slice=sawm-defense.slice
+ExecStart=/opt/sawm-labo/attacher_lsm.sh
+ExecStop=/bin/rm -f /sys/fs/bpf/sawm/refus_ouverture /sys/fs/bpf/sawm/refus_execution
+[Install]
+WantedBy=multi-user.target

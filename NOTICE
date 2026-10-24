@@ -1,0 +1,23 @@
+Cyber Defense Agentique SAWM&Basira
+Copyright 2026 SAWM-io contributors
+
+This distribution contains a client-side reference integration: Linux sensors,
+local controllers and executors, public API connector, dashboard, examples and
+tests. Unless noted below, this source code is licensed under Apache-2.0.
+
+Exception: invite/capteurs/lsm_refus.bpf.c is licensed under GPL-2.0-only,
+as identified by its SPDX header and kernel BPF licence declaration. See
+LICENSES/GPL-2.0-only.txt. This exception applies only to that BPF program;
+it does not license any proprietary Cloud engine.
+
+The proprietary implementations of SAWM, Basira, TSST and ODVL are NOT part of
+this distribution. Access to their hosted services requires an authorised
+account, appropriate credentials and the applicable service terms and credits.
+This source-code licence does not grant free Cloud service or expose server code.
+
+The SAWM and Basira names and flower identify the origin of this project.
+No endorsement or general trademark permission is implied; see LICENSE section 6.
+
+The bundled public SDK is identified in connecteur/vendor/PROVENANCE.txt.
+The architecture illustration was generated with image_gen using the supplied
+SAWM flower reference; its prompt is recorded in docs/assets/IMAGE-PROMPT.txt.

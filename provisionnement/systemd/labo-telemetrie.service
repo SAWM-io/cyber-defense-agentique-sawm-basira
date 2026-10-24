@@ -1,0 +1,10 @@
+[Unit]
+Description=Telemetrie du laboratoire vers le controleur
+[Service]
+Slice=sawm-defense.slice
+Environment=LABO_CONTROLEUR=127.0.0.1
+ExecStart=/usr/bin/python3 /opt/sawm-labo/agent/telemetrie.py
+Restart=always
+RestartSec=2
+[Install]
+WantedBy=multi-user.target

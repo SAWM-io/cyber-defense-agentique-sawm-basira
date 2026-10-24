@@ -1,0 +1,12 @@
+[Unit]
+Description=Capteur eBPF d'execution de processus (tracepoint sched_process_exec)
+[Service]
+Slice=sawm-defense.slice
+ExecStartPre=/bin/sh -c 'echo $MAINPID > /run/capteur_exec.pid'
+ExecStart=/usr/bin/bpftrace /opt/capteur_exec.bt
+StandardOutput=append:/var/log/capteur_exec.jsonl
+StandardError=append:/var/log/capteur_exec.err
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=multi-user.target

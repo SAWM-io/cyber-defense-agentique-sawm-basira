@@ -1,0 +1,2985 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <title>Salle des Machines · laboratoire</title>
+    <style>
+      :root {
+        /* Charte du site principal sawm.io : noir et blanc, sans couleur d'accent. Les états se lisent par la
+           forme (contour plein / pointillé / inversé) et les séries des courbes par le trait (plein, tirets, points). */
+        --fond: #080808;
+        --surface: #0f0f0f;
+        --trait: #2b2b2b;
+        --texte: #f8f8f6;
+        --doux: #aaaaaa;
+        --accent: #f8f8f6;
+        --ok: #d0d0d0;
+        --attention: #8f8f8f;
+        --alerte: #f8f8f6;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+        font-family: Archivo, Arial, sans-serif;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--fond);
+        color: var(--texte);
+        font-size: 14px;
+        background-image: radial-gradient(ellipse at 80% 0%, #182c454d, transparent 55%);
+      }
+      header {
+        padding: 22px 28px 16px;
+        border-bottom: 1px solid var(--trait);
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 6px;
+        letter-spacing: -0.5px;
+      }
+      h2 {
+        font-size: 15px;
+        margin: 0 0 15px;
+      }
+      h3 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      p {
+        line-height: 1.5;
+      }
+      a {
+        color: var(--accent);
+      }
+      button,
+      select {
+        font: inherit;
+      }
+      button {
+        border: 1px solid var(--trait);
+        background: var(--surface);
+        color: var(--texte);
+        padding: 9px 13px;
+        border-radius: 7px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .ligne {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .bandeau {
+        justify-content: space-between;
+      }
+      .doux,
+      .nd {
+        color: var(--doux);
+      }
+      .petit {
+        font-size: 12px;
+      }
+      .jeton {
+        display: inline-block;
+        border: 1px solid var(--trait);
+        padding: 5px 9px;
+        border-radius: 20px;
+        font-size: 12px;
+      }
+      .etat-ok {
+        color: var(--ok);
+      }
+      .etat-ko {
+        color: var(--alerte);
+      }
+      .etat-attention {
+        color: var(--attention);
+      }
+      #avert {
+        display: grid;
+        padding: 8px 28px;
+        border-bottom: 1px solid var(--trait);
+        background: var(--surface);
+        color: var(--doux);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      #avert > span {
+        grid-area: 1 / 1;
+        overflow-wrap: anywhere;
+      }
+      /* Chaque message réserve sa place, même à fort zoom ou sur petit écran. */
+      #avert .avert-reserve {
+        visibility: hidden;
+      }
+      #avert[data-etat="invite"] {
+        color: var(--attention);
+      }
+      #avert[data-etat="collecteur"],
+      #avert[data-etat="absent"] {
+        color: var(--alerte);
+      }
+      .onglets {
+        padding: 16px 28px 0;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .onglets button[aria-selected="true"] {
+        background: var(--accent);
+        color: #061624;
+        border-color: var(--accent);
+      }
+      main {
+        padding: 20px 28px;
+        max-width: 1680px;
+        margin: auto;
+      }
+      .vue[hidden] {
+        display: none;
+      }
+      .grille {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .carte {
+        background: var(--surface);
+        border: 1px solid var(--trait);
+        border-radius: 11px;
+        padding: 18px;
+        min-width: 0;
+      }
+      .large {
+        grid-column: 1/-1;
+      }
+      .demi {
+        grid-column: span 2;
+      }
+      .chiffre {
+        font-size: 28px;
+        font-weight: 650;
+        letter-spacing: -0.5px;
+        min-height: 39px;
+      }
+      .paire {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--trait);
+        padding: 6px 0;
+        font-size: 12px;
+      }
+      .paire span:last-child {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .paire:last-child {
+        border: 0;
+      }
+      canvas {
+        display: block;
+        height: 100px;
+        width: 100%;
+        margin: 10px 0;
+      }
+      .table-scroll {
+        overflow: auto;
+        max-height: 540px;
+      }
+      #connexions .table-scroll {
+        max-height: 360px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 12px;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 10px 12px 10px 0;
+        border-bottom: 1px solid var(--trait);
+      }
+      th {
+        color: var(--doux);
+        font-weight: 500;
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+        white-space: nowrap;
+      }
+      td {
+        min-width: 70px;
+        max-width: 420px;
+        overflow-wrap: anywhere;
+      }
+      td.n {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .liste {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .item {
+        border-left: 3px solid var(--accent);
+        background: var(--fond);
+        padding: 12px 15px;
+        border-radius: 0 7px 7px 0;
+        overflow-wrap: anywhere;
+      }
+      .item.alerte {
+        border-color: var(--alerte);
+      }
+      .item p {
+        margin: 8px 0;
+      }
+      .item ul {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
+      #campagne-cas summary {
+        cursor: pointer;
+        line-height: 1.6;
+      }
+      #campagne-cas pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font-size: 11px;
+      }
+      .preuves {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .chrono {
+        max-height: 350px;
+        overflow: auto;
+      }
+      .chronoligne {
+        display: grid;
+        grid-template-columns: 170px 130px 1fr;
+        gap: 12px;
+        border-bottom: 1px solid var(--trait);
+        padding: 9px 0;
+        font-size: 12px;
+      }
+      .metriques {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin: 15px 0;
+      }
+      .metrique {
+        border-right: 1px solid var(--trait);
+        padding-right: 20px;
+        min-width: 120px;
+      }
+      .metrique strong {
+        display: block;
+        font-size: 24px;
+      }
+      .pagination {
+        margin-top: 14px;
+        justify-content: space-between;
+      }
+      .barre {
+        height: 8px;
+        background: var(--trait);
+        display: flex;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+      footer {
+        padding: 15px 28px;
+        border-top: 1px solid var(--trait);
+        font-size: 11px;
+        color: var(--doux);
+        overflow-wrap: anywhere;
+      }
+      .legende {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        color: var(--doux);
+        font-size: 11px;
+      }
+      .legende i {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 5px;
+        border-radius: 2px;
+      }
+      #collecteur-age {
+        min-width: 170px;
+      }
+      .titre-vue {
+        margin: 0 0 16px;
+      }
+      .synthese { max-width:1680px; margin:20px auto 14px; padding:0 28px; }
+      .synthese .grille { grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+      .synthese .carte { padding:16px 18px; background:linear-gradient(135deg,#1a2c42,#142031); }
+      .synthese h2 { margin:0; font-size:18px; }
+      .synthese .etiquette { color:var(--doux); font-size:12px; display:block; margin-bottom:7px; }
+      .synthese strong { font-size:25px; font-variant-numeric:tabular-nums; letter-spacing:-.5px; }
+      .synthese canvas { height:48px; margin:6px 0 0; }
+      .synthese p { margin:5px 0 0; }
+      .alerte-compacte { border:1px solid var(--trait); border-left:3px solid var(--attention); border-radius:9px; background:var(--fond); }
+      .alerte-compacte > summary { padding:11px 14px; cursor:pointer; display:flex; gap:12px; align-items:center; list-style:none; }
+      .alerte-compacte > summary::-webkit-details-marker,.panneau > summary::-webkit-details-marker { display:none; }
+      .alerte-compacte > summary::after,.panneau > summary::after { content:'＋'; color:var(--doux); font-size:17px; flex:none; }
+      .alerte-compacte[open] > summary::after,.panneau[open] > summary::after { content:'−'; }
+      .alerte-compacte .alerte-entete { min-width:0; flex:1; }
+      .alerte-compacte h3 { margin:0 0 4px; font-size:13px; }
+      .alerte-compacte .alerte-apercu { color:var(--doux); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .alerte-compacte .alerte-date { color:var(--doux); font-size:11px; white-space:nowrap; }
+      .alerte-details { border-top:1px solid var(--trait); padding:0 14px 14px; overflow-wrap:anywhere; }
+      .alerte-details p { margin:9px 0; }
+      .alerte-details ul { padding-left:20px; }
+      .alertes-commandes { margin:12px 0 10px; gap:8px; }
+      .alertes-commandes select { border:1px solid var(--trait); background:var(--fond); color:var(--texte); border-radius:7px; padding:7px 9px; max-width:100%; }
+      .alertes-commandes label { color:var(--doux); font-size:12px; }
+      .alertes-compteurs { display:flex; gap:8px; flex-wrap:wrap; }
+      .alertes-compteurs span { background:var(--fond); border-radius:6px; padding:5px 8px; font-size:11px; color:var(--doux); }
+      .panneaux-secondaires { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; max-width:1680px; padding:0 28px; margin:16px auto; }
+      .panneaux-secondaires > .panneau { margin:0!important; }
+      .panneau { padding:0; }
+      .panneau > summary { cursor:pointer; list-style:none; padding:17px 18px; display:flex; align-items:center; gap:12px; }
+      .panneau > summary h2 { font-size:14px; margin:0; flex:1; }
+      .panneau > summary .jeton { max-width:50%; font-size:10px; }
+      .panneau[open] { border-color:#43617e; }
+      .panneaux-secondaires > .panneau[open] { grid-column:1/-1; }
+      .panneau-contenu { padding:0 18px 18px; }
+      .panneau-contenu > p:first-child { margin-top:0; }
+      .graph-caption { display:flex; justify-content:space-between; gap:8px; color:var(--doux); font-size:11px; margin:4px 0 10px; }
+      .onglets { position:sticky; top:0; z-index:4; background:#0d1420ed; backdrop-filter:blur(10px); padding-bottom:12px; border-bottom:1px solid var(--trait); }
+      summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+      .vide {
+        padding: 15px 0;
+        color: var(--doux);
+        line-height: 1.5;
+      }
+      @media (max-width: 1000px) {
+        .synthese .grille { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .grille {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .demi {
+          grid-column: 1/-1;
+        }
+      }
+      @media (max-width: 650px) {
+        #avert { padding-inline: 16px; }
+        .synthese { padding:0 16px; margin-top:16px; }
+        .synthese .carte { padding:13px; }
+        .synthese strong { font-size:21px; }
+        .panneaux-secondaires { grid-template-columns:1fr; padding:0 16px; }
+        .panneau > summary { padding:14px; gap:8px; }
+        .panneau > summary .jeton { max-width:42%; }
+        .alerte-compacte .alerte-date { display:none; }
+        .alerte-compacte > summary { padding:10px; gap:7px; }
+        .alerte-compacte > summary > .jeton { max-width:38%; font-size:10px; }
+        #alertes-panneau { margin:14px 16px!important; padding:14px; }
+        .onglets { flex-wrap:nowrap; overflow:auto; }
+        .onglets button { white-space:nowrap; flex:none; }
+        header,
+        main {
+          padding: 16px;
+        }
+        .onglets {
+          padding: 14px 16px 0;
+        }
+        .grille {
+          grid-template-columns: 1fr;
+        }
+        .demi {
+          grid-column: auto;
+        }
+        .chronoligne {
+          grid-template-columns: 1fr;
+        }
+        .chiffre {
+          font-size: 24px;
+        }
+      }
+
+      /* ——— Charte SAWM noir et blanc ——— */
+      body { background: var(--fond); background-image: none; font-size: 14px; }
+      header { padding: 26px 28px 18px; }
+      h1 { font-weight: 400; font-size: 30px; letter-spacing: -1.2px; }
+      h2 { font-weight: 400; letter-spacing: -0.3px; }
+      h3 { font-weight: 500; }
+      .marque { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+      .marque b { font-weight: 400; font-size: 20px; letter-spacing: 0.34em; }
+      .marque span { border-left: 1px solid #3b3b3b; padding-left: 16px; font-family: var(--mono);
+        font-size: 9px; letter-spacing: 0.16em; line-height: 1.35; text-transform: uppercase; }
+      a { color: var(--texte); text-decoration-color: #555; }
+      button { border-radius: 0; background: transparent; border-color: #3b3b3b; }
+      button:hover:not(:disabled) { border-color: var(--texte); }
+      .onglets { background: #080808ee; }
+      .onglets button { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; }
+      .onglets button[aria-selected="true"] { background: #f1f1ee; color: #0a0a0a; border-color: #f1f1ee; }
+      .carte, .synthese .carte { background: var(--surface); border-radius: 0; }
+      .synthese .carte { background: var(--surface); }
+      .panneau[open] { border-color: #555; }
+      .chiffre, .synthese strong, .metrique strong { font-weight: 400; letter-spacing: -1px; }
+      .jeton { border-radius: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.03em; color: var(--doux); }
+      .petit, th, .synthese .etiquette, .legende, footer, .graph-caption, .alerte-compacte .alerte-date,
+      .alertes-compteurs span, .chronoligne > :first-child { font-family: var(--mono); letter-spacing: 0.02em; }
+      th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+      .etat-ok { color: var(--texte); }
+      .etat-attention { color: var(--doux); }
+      .etat-ko { color: var(--texte); font-weight: 600; }
+      .jeton.etat-ok { border: 1px solid var(--texte); color: var(--texte); }
+      .jeton.etat-attention { border: 1px dashed #777; color: var(--doux); }
+      .jeton.etat-ko { background: var(--texte); color: #080808; border-color: var(--texte); font-weight: 500; }
+      p.etat-ko:not(:empty), p.etat-attention:not(:empty) { border-left: 2px solid currentColor; padding-left: 9px; }
+      #avert { background: #0b0b0b; }
+      #avert[data-etat="invite"] { color: var(--doux); }
+      #avert[data-etat="collecteur"], #avert[data-etat="absent"] { color: #080808; background: var(--texte); }
+      .item { border-left-color: #555; border-radius: 0; }
+      .item.alerte { border-left: 3px solid var(--texte); }
+      .alerte-compacte { border-radius: 0; border-left: 3px solid #777; }
+      .alertes-commandes select { border-radius: 0; }
+      .alertes-compteurs span { border-radius: 0; border: 1px solid var(--trait); background: transparent; }
+      .barre { border-radius: 0; }
+      .legende i { border-radius: 0; }
+      .legende span:nth-child(2) i { background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 5px) !important; color: var(--attention); }
+      .legende span:nth-child(3) i { background: radial-gradient(circle, currentColor 1.2px, transparent 1.4px) 0 0 / 3px 3px !important; color: var(--ok); }
+      button:focus-visible, a:focus-visible, summary:focus-visible { outline-color: var(--texte); }
+      ::selection { background: #f8f8f6; color: #080808; }
+      input[type=checkbox], input[type=radio], select { accent-color: #f8f8f6; }
+      select { background: #0f0f0f; color: var(--texte); border: 1px solid #3b3b3b; border-radius: 0; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="marque" aria-label="SAWM"><b>SAWM</b><span>Deep<br />Tech</span></div>
+      <div class="ligne bandeau">
+        <div>
+          <h1>Salle des Machines</h1>
+          <div class="doux">
+            Laboratoire isolé · observations, décisions et preuves
+          </div>
+        </div>
+        <div class="ligne">
+          <span id="mode" class="jeton">—</span
+          ><span id="lien" class="jeton">connexion…</span
+          ><span id="age" class="jeton">âge inconnu</span>
+        </div>
+      </div>
+      <div class="ligne petit doux" style="margin-top: 14px">
+        <span id="run">—</span><span id="cloud-global">Cloud : —</span
+        ><span id="collecteur-age">collecteur : connexion…</span
+        ><label
+          >Actualisation
+          <select id="periode">
+            <option value="1000">1 s</option>
+            <option value="2000">2 s</option>
+            <option value="5000">5 s</option>
+          </select></label
+        >
+      </div>
+    </header>
+    <div id="avert" role="status" aria-atomic="true" data-etat="attente">
+      <span id="avert-message">Collecteur en attente · aucune mesure reçue.</span>
+      <span class="avert-reserve" aria-hidden="true" data-message="attente">Collecteur en attente · aucune mesure reçue.</span>
+      <span class="avert-reserve" aria-hidden="true" data-message="recent">Télémétrie récente · disponibilité du service dans la synthèse.</span>
+      <span class="avert-reserve" aria-hidden="true" data-message="invite">Télémétrie absente ou périmée · mesures conservées, état actuel non confirmé.</span>
+      <span class="avert-reserve" aria-hidden="true" data-message="collecteur">Collecteur injoignable · mesures conservées, état actuel non confirmé.</span>
+      <span class="avert-reserve" aria-hidden="true" data-message="absent">Collecteur injoignable · aucune mesure disponible.</span>
+    </div>
+    <section class="synthese" aria-labelledby="synthese-titre">
+      <div class="ligne bandeau" style="margin-bottom:12px"><h2 id="synthese-titre">Vue d’ensemble</h2><span id="resume-fraicheur" class="petit doux">Mesures en attente</span></div>
+      <div class="grille">
+        <article class="carte"><span class="etiquette">Points à examiner</span><strong id="resume-alertes">N/D</strong><p id="resume-alertes-detail" class="petit doux">Historique et état des liaisons</p></article>
+        <article class="carte"><span class="etiquette">Service témoin</span><strong id="resume-service">N/D</strong><p id="resume-service-detail" class="petit doux">Disponibilité mesurée</p></article>
+        <article class="carte"><span class="etiquette">CPU invité</span><strong id="resume-cpu">N/D</strong><canvas id="g-resume-cpu" aria-label="CPU invité en pourcentage, historique des mesures reçues"></canvas></article>
+        <article class="carte"><span class="etiquette">Mémoire utilisée</span><strong id="resume-ram">N/D</strong><canvas id="g-resume-ram" aria-label="Mémoire utilisée, historique des mesures reçues"></canvas></article>
+      </div>
+      <p id="resume-fenetre" class="petit doux">Graphiques : période mesurée non disponible.</p>
+    </section>
+    <section id="alertes-panneau" class="carte" aria-labelledby="alertes-titre" style="margin:16px 28px">
+      <div class="ligne bandeau">
+        <h2 id="alertes-titre">À examiner</h2>
+        <span id="alertes-nombre" class="jeton etat-attention" role="status">État non vérifié</span>
+      </div>
+      <div id="alertes-compteurs" class="alertes-compteurs"></div>
+      <div class="ligne bandeau alertes-commandes"><label>Affichage <select id="alertes-regrouper"><option value="recent">Les plus récentes</option><option value="statut">Regrouper par état</option></select></label><span class="petit doux">Ouvrir une ligne pour les détails et les preuves</span></div>
+      <div id="alertes-liste" class="liste"><p class="vide">En attente des données.</p></div>
+      <div class="ligne bandeau" style="margin-top:12px"><span id="alertes-page" class="petit doux"></span><div class="ligne"><button id="alertes-precedentes" type="button" disabled>Précédentes</button><button id="alertes-suivantes" type="button" disabled>Voir les 5 suivantes</button></div></div>
+      <p id="alertes-portee" class="petit doux"></p>
+      <details class="petit doux"><summary>Comment lire ces points</summary><p>Historique non clos : cela ne signifie pas qu’un incident est encore actif et ne constitue pas un diagnostic de logiciel malveillant. Les dossiers conservent leur dernier état publié ; les alertes de liaison suivent la fraîcheur des mesures. Aucune action ni clôture automatique depuis cette vue.</p></details>
+    </section>
+    <div class="panneaux-secondaires">
+    <details class="carte panneau" aria-label="Protection continue et preuves" style="margin:16px 24px">
+      <summary class="ligne bandeau"><h2>Protection continue et preuves</h2></summary>
+      <div class="panneau-contenu">
+      <div class="ligne">
+        <span id="securite-veille" class="jeton etat-ko">Veille : non vérifiée</span>
+        <span id="securite-audit" class="jeton etat-ko">Signatures : non vérifiées</span>
+      </div>
+      <p id="securite-budget" class="petit doux">Budget et reprise Cloud : N/D</p>
+      <p id="securite-stockage" class="petit doux">Archivage télémétrie : N/D</p>
+      <p id="securite-preuves" class="petit doux">Chaîne de preuves : N/D</p>
+      <p class="petit doux">Ce n’est pas un coffre immuable. L’authenticité des signatures ne garantit pas l’immutabilité du stockage.</p>
+      <p id="securite-placement" class="petit doux">Emplacement des preuves : N/D. Un retour arrière conjoint du journal et du checkpoint exige une ancre indépendante.</p>
+      </div>
+    </details>
+    <details class="carte panneau" aria-labelledby="defense-fichiers-titre" style="margin:16px 24px">
+      <summary class="ligne bandeau"><h2 id="defense-fichiers-titre">Intégrité, maintenance et attribution</h2><span id="defense-fichiers-etat" class="jeton etat-attention">Non vérifié</span></summary>
+      <div class="panneau-contenu">
+      <p id="defense-fichiers-capteur" class="petit doux">Capture des écritures : en attente.</p>
+      <div id="defense-fichiers-liste" class="liste"></div>
+      <h3>Dernières alertes conservées</h3><div id="defense-fichiers-historique" class="liste"></div>
+      <h3>Connexions et rapprochements entre IP</h3><div id="defense-auth-campagnes" class="liste"></div>
+      <h3>Géographie réseau — indication approximative</h3><div id="defense-geographie" class="liste"></div>
+      <p class="petit doux">Pays associé à une plage IP ; ni position d’une personne, ni preuve d’identité commune. VPN, proxy et relais peuvent masquer l’origine réelle. Aucun blocage n’est déduit du pays. <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a> · base locale, aucune requête externe pour les observations.</p>
+      <p class="petit doux">L’origine de chaque action est indiquée. Les rapprochements entre IP sont des hypothèses ; ils ne prouvent pas une identité. Une opération signée reste visible avec ses effets. Les mesures anciennes ne confirment aucune protection actuelle.</p>
+      <h3>Épreuves vérifiées du 24 septembre</h3>
+      <div id="defense-signee-resultats" class="liste"><p class="petit doux">Rapport en préparation.</p></div>
+      <p class="petit"><a href="/api/preuve?f=releves/rapports/rapport-defense-correlee-20260924.pdf" target="_blank" rel="noopener">Rapport PDF : défense corrélée et maintenance signée</a></p>
+      </div>
+    </details>
+    <details class="carte panneau" aria-labelledby="integrite-arbres-titre" style="margin:16px 24px">
+      <summary class="ligne bandeau"><h2 id="integrite-arbres-titre">Gros dossiers — dernier contrôle d’intégrité</h2><span id="integrite-arbres-etat" class="jeton etat-attention">Aucun scan reçu</span></summary>
+      <div class="panneau-contenu">
+      <p id="integrite-arbres-source" class="petit doux">Arbre et référence approuvée : en attente.</p>
+      <p id="integrite-arbres-mesures" class="petit doux">Temps de scan, CPU et mémoire : non disponibles.</p>
+      <div id="integrite-arbres-changements" class="liste"></div>
+      <p class="petit doux">Scanner staging déclenché explicitement, sans surveillance continue. La durée du scan ne mesure pas le délai depuis une modification inconnue. Auteur inconnu : une différence ne prouve ni malware ni responsabilité d’un utilisateur ; aucun arrêt automatique.</p>
+      </div>
+    </details>
+    <details class="carte panneau" aria-labelledby="extensions-titre" style="margin:16px 24px">
+      <summary class="ligne bandeau"><h2 id="extensions-titre">Épreuves complémentaires et preuves</h2><span id="extensions-tests" class="jeton etat-attention">Résultats en attente</span></summary>
+      <div class="panneau-contenu">
+      <p id="extensions-source" class="petit doux">Antivirus, sentinelle, géographie et gros dossiers.</p>
+      <div id="extensions-resultats" class="liste"></div>
+      <div id="extensions-rapport" class="petit"></div>
+      <p class="petit doux">Résultats de campagnes datées, distincts de l’état actuel des protections. Les capacités limitées et les preuves manquantes restent indiquées.</p>
+      </div>
+    </details>
+    <details class="carte panneau" aria-labelledby="dispositions-titre" style="margin:16px 24px">
+      <summary class="ligne bandeau"><h2 id="dispositions-titre">SAWM — activité et état fonctionnel</h2>
+        <span id="activite-agent-phase" class="jeton etat-attention" role="status">Activité non vérifiée</span></summary>
+      <div class="panneau-contenu">
+      <p id="activite-agent-source" class="petit doux">Aucun battement d’activité reçu.</p>
+      <div id="activite-agent-moteurs" class="grille"></div>
+      <p id="activite-agent-memoire" class="petit doux">Aucun rappel instrumenté reçu.</p>
+      <p class="petit doux">Un appel HTTP réussi ne prouve pas une décision correcte. Les résultats de moteurs anciens restent historiques.</p>
+      <section class="item" aria-labelledby="emotion-titre" style="margin-top:16px">
+        <div class="ligne"><h3 id="emotion-titre">État émotionnel simulé</h3><span id="emotion-statut" class="jeton etat-attention" role="status">Non disponible</span></div>
+        <p id="emotion-source" class="petit doux">Pas d’état actuel confirmé.</p>
+        <div id="emotion-scores" class="grille"></div>
+        <div id="emotion-mefiance" class="petit" style="margin-top:12px"></div>
+        <p class="petit doux">Lecture du modèle de dispositions : heuristiques locales non calibrées, pas des sentiments vécus. Incertitude = 100 − confiance dans les preuves. Aucun droit ni arrêt n’est décidé par ces scores. Sources détaillées dans le modèle ci-dessous.</p>
+      </section>
+      <details style="margin-top:14px"><summary>Modèle de dispositions — heuristiques locales</summary>
+      <p><span id="dispositions-statut" class="jeton etat-attention" role="status">Non disponible</span></p>
+      <p id="dispositions-source" class="petit doux">Aucun instantané du contrôleur reçu.</p>
+      <div class="grille">
+        <div class="item"><h3>Traits de fonctionnement</h3><div id="dispositions-traits"></div></div>
+        <div class="item"><h3>État des preuves</h3><div id="dispositions-etat"></div></div>
+        <div class="item"><h3>Méfiance contextuelle</h3><div id="dispositions-cibles"></div></div>
+      </div>
+      <h3 style="margin-top:16px">Raisons et sources</h3>
+      <ul id="dispositions-motifs" class="petit doux"><li>Aucune raison disponible.</li></ul>
+      <p class="petit doux">Scores fonctionnels de 0 à 100, heuristiques et non calibrés : ils ne sont pas des probabilités ni des sentiments vécus. L’incertitude affichée est le complément de la confiance dans l’état des preuves (100 − confiance). Ces dispositions orientent l’attention sans accorder de permission supplémentaire.</p>
+      <p class="petit doux">Modèle fonctionnel simulé ; aucune émotion vécue n’est démontrée par ces scores. Ce modèle est distinct de l’activité réelle de SAWM, TSST et ODVL affichée au-dessus.</p>
+      </details>
+      </div>
+    </details>
+    <details class="carte panneau" aria-labelledby="campagne-titre" style="margin:16px 24px">
+      <summary class="ligne bandeau"><h2 id="campagne-titre">Validation défensive — base, accès et noyau</h2>
+        <span id="campagne-statut" class="jeton etat-attention" role="status">Campagne : non vérifiée</span></summary>
+      <div class="panneau-contenu">
+      <p id="campagne-date" class="petit doux">Campagne du 23 septembre 2026 · rapport local en lecture seule</p>
+      <p class="petit doux">Fixtures bénignes dans la VM du laboratoire. Ces essais mesurent les cas décrits ; ils ne démontrent pas une protection générale contre les virus. L’auteur d’une action est affiché séparément de la décision SAWM.</p>
+      <p id="campagne-erreur" class="petit etat-attention"></p>
+      <div id="campagne-cas" class="liste"><p class="vide">Aucun résultat chargé.</p></div>
+      <p id="campagne-references" class="petit doux"></p>
+      <div id="campagne-preuves"></div>
+      <h3 style="margin-top:16px">Limites de la validation</h3>
+      <ul id="campagne-limites" class="petit doux"><li>Aucune campagne validée à ce stade.</li></ul>
+      </div>
+    </details>
+    <details class="carte panneau" aria-labelledby="acces-titre" style="margin:16px 24px">
+      <summary class="ligne bandeau"><h2 id="acces-titre">Tentatives d’accès et exclusions IP</h2>
+        <span id="acces-statut" class="jeton etat-attention" role="status">Essai : non vérifié</span></summary>
+      <div class="panneau-contenu">
+      <p id="acces-date" class="petit doux">Rapport local en lecture seule · aucun résultat chargé</p>
+      <p id="acces-perimetre" class="petit doux"></p>
+      <p class="petit doux">Événements observés et exclusions consignées dans cet essai. Une exclusion locale ne constitue pas une décision SAWM. Une ressemblance entre plusieurs adresses ne confirme pas une même personne. Ce panneau ne déclenche aucune action.</p>
+      <p id="acces-erreur" class="petit etat-attention"></p>
+      <div id="acces-cas" class="liste"><p class="vide">Aucun cas confirmé.</p></div>
+      <details style="margin-top:12px">
+        <summary id="acces-evenements-resume">Événements consignés</summary>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Date</th><th>IP source</th><th>Événement</th><th>Compte déclaré</th><th>Échéance d’exclusion consignée</th><th>Appliqué par</th><th>Motif</th></tr></thead>
+          <tbody id="acces-evenements"></tbody>
+        </table></div>
+      </details>
+      <h3 style="margin-top:16px">Corrélations à vérifier</h3>
+      <ul id="acces-correlations" class="petit doux"></ul>
+      <h3>Localisation des adresses</h3>
+      <ul id="acces-geographie" class="petit doux"></ul>
+      <h3>Analyse SAWM</h3>
+      <p id="acces-cloud" class="petit doux">Non fournie.</p>
+      <details><summary>Métadonnées d’analyse publiées</summary><pre id="acces-cloud-details"></pre></details>
+      <h3 style="margin-top:16px">Limites de l’essai</h3>
+      <ul id="acces-limites" class="petit doux"></ul>
+      </div>
+    </details>
+    </div>
+    <nav class="onglets" role="tablist" aria-label="Vues du laboratoire">
+      <button
+        id="tab-systeme"
+        role="tab"
+        aria-selected="true"
+        aria-controls="systeme"
+        data-vue="systeme"
+      >
+        Système</button
+      ><button
+        id="tab-connexions"
+        role="tab"
+        aria-selected="false"
+        aria-controls="connexions"
+        data-vue="connexions"
+      >
+        Connexions</button
+      ><button
+        id="tab-incidents"
+        role="tab"
+        aria-selected="false"
+        aria-controls="incidents"
+        data-vue="incidents"
+      >
+        Incidents <span id="nb-incidents">0</span></button
+      ><button
+        id="tab-decisions"
+        role="tab"
+        aria-selected="false"
+        aria-controls="decisions"
+        data-vue="decisions"
+      >
+        Décisions <span id="nb-decisions">0</span></button
+      ><button
+        id="tab-rapports"
+        role="tab"
+        aria-selected="false"
+        aria-controls="rapports"
+        data-vue="rapports"
+      >
+        Rapports
+      </button>
+    </nav>
+    <main>
+      <div
+        id="systeme"
+        class="vue"
+        role="tabpanel"
+        aria-labelledby="tab-systeme"
+      >
+        <div class="grille">
+          <details class="carte panneau large">
+      <summary class="ligne bandeau"><h2>Console du laboratoire</h2></summary>
+      <div class="panneau-contenu">
+            <div class="ligne">
+              <label
+                >Essai
+                <select id="op-scenario">
+                  <option value="transfert">Transfert à vérifier</option>
+                  <option value="transfert-autorise">Transfert autorisé</option>
+                  <option value="repetition">
+                    Service à redémarrage automatique
+                  </option>
+                </select></label
+              >
+              <label
+                >Volume
+                <select id="op-volume">
+                  <option value="1">1 Gio</option>
+                  <option value="5">5 Gio</option>
+                  <option value="20">20 Gio</option>
+                </select></label
+              >
+              <button id="op-lancer" disabled>Lancer l’essai</button>
+              <button id="op-arreter" disabled>Arrêter l’essai actif</button>
+            </div>
+            <p id="op-statut" class="petit doux" role="status">
+              Connexion à la console…
+            </p>
+            <p class="petit doux">
+              Charges bénignes et fixtures du laboratoire. Un seul essai à la
+              fois ; arrêt automatique demandé après 10 minutes, puis nettoyage
+              contrôlé. Un arrêt demandé ici est attribué à l’opérateur.
+            </p>
+            <div class="ligne">
+              <label
+                >Compte rendu
+                <select id="op-rapport">
+                  <option value="">Aucun rapport disponible</option>
+                </select></label
+              ><button id="op-rejouer" disabled>Rejouer le compte rendu</button>
+            </div>
+            <p id="op-erreur" class="petit etat-ko" role="status"></p>
+            <div id="op-rejeu" hidden></div>
+      </div>
+    </details>
+          <details class="carte panneau large">
+      <summary class="ligne bandeau"><h2>Interroger SAWM sur l’infrastructure</h2></summary>
+      <div class="panneau-contenu">
+            <div class="ligne" id="q-modeles"></div>
+            <div class="ligne" style="align-items:flex-start;margin-top:8px">
+              <textarea
+                id="q-texte"
+                rows="2"
+                style="flex:1 1 380px;min-width:260px;font:inherit;padding:9px 11px;border-radius:8px"
+                placeholder="Question précise sur la période choisie…"
+              ></textarea>
+              <label
+                >Période
+                <select id="q-fenetre"></select></label
+              >
+              <button id="q-envoyer">Interroger</button>
+            </div>
+            <p id="q-statut" class="petit doux" role="status"></p>
+            <div id="q-reponse"></div>
+            <p class="petit doux">
+              Réponse rédigée après le rappel des preuves de la mémoire. Leur
+              identifiant et leur temps de connaissance sont consultables ;
+              la présence et la pertinence des citations ne sont pas contrôlées
+              par cette console. Sans
+              preuve sur la période, le modèle n’est pas appelé. Lecture seule :
+              aucune action n’est déclenchée sur la machine surveillée.
+            </p>
+      </div>
+    </details>
+          <section class="carte">
+            <h2>Processeur de l’invité</h2>
+            <div class="chiffre" id="cpu">N/D</div>
+            <canvas id="g-cpu" aria-label="Historique utilisation CPU"></canvas>
+            <div class="graph-caption"><span>Occupation totale · 0–100 %</span><span>Temps →</span></div>
+            <div class="paire">
+              <span>Cœurs</span><span id="coeurs">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Charge moyenne 1 min</span><span id="load">N/D</span>
+            </div>
+          </section>
+          <section class="carte">
+            <h2>Mémoire de l’invité</h2>
+            <div class="chiffre" id="ram">N/D</div>
+            <canvas id="g-ram" aria-label="Historique mémoire"></canvas>
+            <div class="graph-caption"><span>Mémoire utilisée / capacité VM</span><span>Temps →</span></div>
+            <div class="paire">
+              <span>Disponible</span><span id="ram-dispo">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Swap utilisé</span><span id="swap">N/D</span>
+            </div>
+          </section>
+          <section class="carte">
+            <h2>Disque de l’invité</h2>
+            <div class="chiffre" id="disq">N/D</div>
+            <canvas id="g-io" aria-label="Débits disque"></canvas>
+            <div class="graph-caption"><span>Débit · octets par seconde</span><span>Temps →</span></div>
+            <div class="legende">
+              <span><i style="background: var(--accent)"></i>lecture</span
+              ><span><i style="background: var(--attention)"></i>écriture</span>
+            </div>
+            <p class="petit doux">
+              Courbes en octets/s ; N/D si aucun compteur exploitable.
+            </p>
+          </section>
+          <section class="carte">
+            <h2>Service légitime témoin</h2>
+            <div class="chiffre" id="svc">N/D</div>
+            <canvas id="g-svc" aria-label="Latence du témoin"></canvas>
+            <div class="graph-caption"><span>Latence de réponse · ms</span><span>Temps →</span></div>
+            <div class="paire">
+              <span>Latence</span><span id="svc-lat">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Disponibilité sur la fenêtre</span
+              ><span id="svc-dispo">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Dernière erreur</span><span id="svc-err">N/D</span>
+            </div>
+          </section>
+          <section class="carte">
+            <h2>Consommation par rôle</h2>
+            <div id="barre-roles" class="barre"></div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Rôle</th>
+                    <th>CPU</th>
+                    <th>Mémoire</th>
+                    <th>PID</th>
+                  </tr>
+                </thead>
+                <tbody id="roles"></tbody>
+              </table>
+            </div>
+            <p class="petit doux">
+              CPU cumulé des processus : 100 % correspond à un cœur.
+            </p>
+          </section>
+          <section class="carte">
+            <h2>Coût du contrôleur</h2>
+            <div class="paire">
+              <span>QEMU du laboratoire · CPU</span><span id="h-cpu">N/D</span>
+            </div>
+            <div class="paire">
+              <span>QEMU · mémoire résidente</span><span id="h-rss">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Collecteur · CPU</span><span id="c-cpu">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Collecteur · mémoire</span><span id="c-rss">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Disque libre</span><span id="h-disq">N/D</span>
+            </div>
+            <div class="paire"><span>VM</span><span id="h-vm">N/D</span></div>
+            <canvas id="g-hote" aria-label="CPU QEMU et collecteur"></canvas>
+            <div class="legende"><span><i style="background:var(--attention)"></i>VM QEMU · % CPU</span><span><i style="background:var(--accent)"></i>Collecteur · % CPU</span></div>
+            <p class="petit doux" id="h-age">—</p>
+          </section>
+          <section class="carte large">
+            <h2>Capteurs de l’invité</h2>
+            <div class="grille">
+              <div>
+                <div class="paire">
+                  <span>Capteur eBPF d’exécution</span
+                  ><span id="s-ebpf">N/D</span>
+                </div>
+                <div class="paire">
+                  <span>Politique LSM</span><span id="s-lsm">N/D</span>
+                </div>
+                <div class="paire">
+                  <span>Exécutions observées</span><span id="s-exec">N/D</span>
+                </div>
+              </div>
+              <div>
+                <div class="paire">
+                  <span>Pertes annoncées par bpftrace</span
+                  ><span id="s-perte">N/D</span>
+                </div>
+                <div class="paire">
+                  <span>Ouvertures sur inode surveillé</span
+                  ><span id="s-vues">N/D</span>
+                </div>
+                <div class="paire">
+                  <span>Refus d’ouverture noyau</span
+                  ><span id="s-refus">N/D</span>
+                </div>
+              </div>
+              <div>
+                <div class="paire">
+                  <span>Refus d’exécution noyau</span
+                  ><span id="s-exec-refus">N/D</span>
+                </div>
+                <div class="paire">
+                  <span>Exemptions du témoin</span
+                  ><span id="s-exempt">N/D</span>
+                </div>
+                <p class="petit doux">
+                  N/D = donnée absente. Les valeurs conservées restent datées en
+                  cas de perte de télémétrie.
+                </p>
+              </div>
+            </div>
+          </section>
+          <section class="carte large">
+            <div class="ligne bandeau">
+              <h2>Activité des fichiers du laboratoire</h2>
+              <label class="petit"
+                ><input id="fichiers-filtre" type="checkbox" checked /> Masquer
+                ouverture, lecture et fermeture</label
+              >
+            </div>
+            <p class="petit doux" id="fichiers-info">
+              Données non disponibles.
+            </p>
+            <div class="legende" id="fichiers-compteurs"></div>
+            <div class="table-scroll" style="max-height: 360px">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Heure invitée</th>
+                    <th>Chemin relatif</th>
+                    <th>Opérations</th>
+                    <th>PID</th>
+                  </tr>
+                </thead>
+                <tbody id="fichiers-table"></tbody>
+              </table>
+            </div>
+            <p class="petit doux">
+              Ces observations de fixtures ne créent pas automatiquement un
+              incident. Les lectures ne sont pas attribuées au témoin sans
+              preuve de processus.
+            </p>
+          </section>
+        </div>
+      </div>
+      <div
+        id="connexions"
+        class="vue"
+        role="tabpanel"
+        aria-labelledby="tab-connexions"
+        hidden
+      >
+        <div class="grille">
+          <section class="carte">
+            <h2>Réseau de l’invité</h2>
+            <div class="chiffre" id="net">N/D</div>
+            <canvas id="g-net" aria-label="Débits réseau"></canvas>
+            <div class="graph-caption"><span>Débit réseau · octets par seconde</span><span>Temps →</span></div>
+            <div class="legende">
+              <span><i style="background: var(--accent)"></i>émis</span
+              ><span><i style="background: var(--ok)"></i>reçus</span>
+            </div>
+            <p id="interface" class="petit doux">—</p>
+          </section>
+          <section class="carte">
+            <h2>Récepteur · octets réellement reçus</h2>
+            <div class="chiffre" id="rec">N/D</div>
+            <canvas id="g-rec" aria-label="Octets reçus"></canvas>
+            <div class="graph-caption"><span>Volume cumulé reçu · octets</span><span>Temps →</span></div>
+            <div class="paire">
+              <span>Connexions reçues</span><span id="rec-conn">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Dernier octet reçu il y a</span
+              ><span id="rec-age">N/D</span>
+            </div>
+          </section>
+          <section class="carte">
+            <h2>Canal de télémétrie</h2>
+            <div class="paire">
+              <span>Connexions depuis démarrage collecteur</span
+              ><span id="t-conn">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Déconnexions</span><span id="t-deconn">N/D</span>
+            </div>
+            <div class="paire">
+              <span>Échantillons retenus</span><span id="t-nb">N/D</span>
+            </div>
+            <p class="petit doux">
+              Ce canal rend compte de la présence de l’agent ; son silence
+              signale une observation perdue.
+            </p>
+          </section>
+          <section class="carte large">
+            <h2>Réception par source</h2>
+            <p class="petit doux">
+              Octets effectivement reçus, comparés aux octets annoncés par
+              chaque flux.
+            </p>
+            <div class="table-scroll" style="max-height: 360px">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Source / flux</th>
+                    <th>Session</th>
+                    <th>Annoncés</th>
+                    <th>Reçus</th>
+                    <th>État</th>
+                    <th>Dernier octet</th>
+                  </tr>
+                </thead>
+                <tbody id="flux-table"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="carte large">
+            <h2>Connexions observées dans l’invité</h2>
+            <p id="conn-info" class="petit doux">
+              Non disponible : aucun inventaire de connexions reçu.
+            </p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Protocole</th>
+                    <th>Adresse locale</th>
+                    <th>Adresse distante</th>
+                    <th>État</th>
+                    <th>PID / processus</th>
+                  </tr>
+                </thead>
+                <tbody id="conn-table"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="carte large">
+            <div class="ligne bandeau">
+              <h2>Appels Basira / SAWM Cloud</h2>
+              <span class="petit doux"
+                >Une ligne par tentative réseau enregistrée</span
+              >
+            </div>
+            <div id="cloud-resume" class="metriques"></div>
+            <p id="cloud-portee" class="petit doux">—</p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Heure de l’appel</th>
+                    <th>Appel</th>
+                    <th>Statut / résultat</th>
+                    <th>Latence</th>
+                    <th>Tentative</th>
+                    <th>Détail public</th>
+                    <th>Jetons fournis</th>
+                  </tr>
+                </thead>
+                <tbody id="cloud"></tbody>
+              </table>
+            </div>
+            <div class="ligne pagination">
+              <span id="cloud-page" class="petit doux">—</span>
+              <div class="ligne">
+                <button id="cloud-direct">Derniers appels · direct</button
+                ><button id="cloud-precedent">Appels précédents</button>
+              </div>
+            </div>
+            <p id="cloud-erreur" class="petit etat-ko" role="status"></p>
+          </section>
+        </div>
+      </div>
+      <div
+        id="incidents"
+        class="vue"
+        role="tabpanel"
+        aria-labelledby="tab-incidents"
+        hidden
+      >
+        <p class="titre-vue doux">
+          Constats transmis par l’orchestrateur. Chaque incident présente ses
+          faits observés et ses preuves publiques.
+        </p>
+        <div class="ligne" style="margin-bottom: 16px">
+          <span id="incidents-resume" class="petit doux"></span
+          ><label class="petit"
+            ><input id="incidents-historique" type="checkbox" /> Afficher aussi
+            les dossiers clos</label
+          >
+        </div>
+        <div id="incidents-liste" class="liste"></div>
+        <section class="carte" style="margin-top: 16px">
+          <h2>Chronologie · événement, mémoire, décision, action, effet</h2>
+          <div id="chrono" class="chrono"></div>
+        </section>
+      </div>
+      <div
+        id="decisions"
+        class="vue"
+        role="tabpanel"
+        aria-labelledby="tab-decisions"
+        hidden
+      >
+        <p class="titre-vue doux">
+          Décisions, origine et raisons factuelles publiques. La proposition et
+          le résultat d’exécution sont distingués par leur statut.
+        </p>
+        <div id="decisions-liste" class="liste"></div>
+      </div>
+      <div
+        id="rapports"
+        class="vue"
+        role="tabpanel"
+        aria-labelledby="tab-rapports"
+        hidden
+      >
+        <section class="carte">
+          <h2>Comptes rendus et pièces de preuve</h2>
+          <p class="doux">
+            Fichiers publics conservés sur le contrôleur. Seuls les documents
+            réellement présents sont proposés.
+          </p>
+          <div id="rapports-liste" class="liste"></div>
+        </section>
+      </div>
+    </main>
+    <footer id="pied">
+      La fermeture de cette page n’arrête aucune mesure. N/D signifie non
+      disponible.
+    </footer>
+    <script>
+      "use strict";
+      const $ = (s) => document.querySelector(s),
+        $$ = (s) => [...document.querySelectorAll(s)];
+      const fini = (v) => typeof v === "number" && Number.isFinite(v);
+      const fmt = (v, n = 1) =>
+        fini(v)
+          ? v.toLocaleString("fr-FR", { maximumFractionDigits: n })
+          : "N/D";
+      const heure = (v) =>
+        fini(v) ? new Date(v).toLocaleString("fr-FR") : "N/D";
+      function octets(v) {
+        if (!fini(v)) return "N/D";
+        const u = ["o", "Kio", "Mio", "Gio", "Tio"];
+        let i = 0;
+        while (v >= 1024 && i < 4) {
+          v /= 1024;
+          i++;
+        }
+        return fmt(v, i ? 1 : 0) + " " + u[i];
+      }
+      function texte(sel, v) {
+        const el = typeof sel === "string" ? $(sel) : sel;
+        el.textContent = v == null ? "N/D" : String(v);
+      }
+      function el(tag, contenu, classe) {
+        const n = document.createElement(tag);
+        if (contenu != null) n.textContent = String(contenu);
+        if (classe) n.className = classe;
+        return n;
+      }
+      function vider(sel) {
+        const n = typeof sel === "string" ? $(sel) : sel;
+        n.replaceChildren();
+        return n;
+      }
+      function etat(sel, v, oui = "actif", non = "arrêté") {
+        texte(sel, v === true ? oui : v === false ? non : "N/D");
+        $(sel).classList.remove("etat-ok", "etat-ko", "nd");
+        $(sel).classList.add(
+          v === true ? "etat-ok" : v === false ? "etat-ko" : "nd",
+        );
+      }
+      function taux(ech, acces) {
+        return ech.slice(1).map((b, i) => {
+          const a = ech[i],
+            va = acces(a),
+            vb = acces(b),
+            dt = (b.mur_epoch_ms - a.mur_epoch_ms) / 1000;
+          return fini(va) && fini(vb) && dt > 0 && dt < 5 && vb >= va
+            ? (vb - va) / dt
+            : null;
+        });
+      }
+      function dernier(a) {
+        return a.length ? a[a.length - 1] : null;
+      }
+      function courbe(id, series, couleurs, maxi) {
+        const c = $(id);
+        if (!c || !c.clientWidth) return;
+        const r = devicePixelRatio || 1,
+          L = c.clientWidth,
+          H = c.clientHeight || 100;
+        c.width = L * r;
+        c.height = H * r;
+        const x = c.getContext("2d");
+        x.setTransform(r, 0, 0, r, 0, 0);
+        const st = getComputedStyle(document.documentElement);
+        x.strokeStyle = st.getPropertyValue("--trait");
+        for(const level of [0.25,0.5,0.75,1]) {
+          x.beginPath();x.moveTo(0,(H-1)*level);x.lineTo(L,(H-1)*level);x.stroke();
+        }
+        let max = fini(maxi)
+          ? maxi
+          : Math.max(1, ...series.flat().filter(fini));
+        series.forEach((s, i) => {
+          x.strokeStyle = st.getPropertyValue(couleurs[i]);
+          x.lineWidth = 1.6;
+          x.setLineDash([[], [6, 4], [1.5, 3]][i % 3]);
+          x.beginPath();
+          let enCours = false;
+          s.forEach((v, j) => {
+            if (!fini(v)) {
+              enCours = false;
+              return;
+            }
+            const px = (j / Math.max(1, s.length - 1)) * L,
+              py = H - 2 - (Math.min(v, max) / max) * (H - 6);
+            if (enCours) x.lineTo(px, py);
+            else {
+              x.moveTo(px, py);
+              enCours = true;
+            }
+          });
+          x.stroke();
+        });
+      }
+      function cellules(parent, values) {
+        const tr = el("tr");
+        values.forEach((v) => tr.append(el("td", v == null ? "N/D" : v)));
+        parent.append(tr);
+        return tr;
+      }
+      let donnees = null,
+        dernierSucces = 0,
+        echecCollecteur = false,
+        requete = false,
+        vue = "systeme",
+        cloudAvant = null,
+        cloudPage = null,
+        cloudCharge = false;
+      let operateurEtat = null,
+        operateurEnvoi = false,
+        operateurLecture = false;
+      let securiteAlertes = null;
+
+      function afficherOperateur() {
+        const o = operateurEtat?.operation;
+        const disponible = operateurEtat?.schema === "sawm-operateur/v1";
+        texte(
+          "#op-statut",
+          disponible
+            ? o
+              ? [
+                  o.scenario,
+                  o.statut,
+                  "début " + (o.debut || "N/D"),
+                  o.fin ? "fin " + o.fin : null,
+                  o.erreur,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "Console prête · aucun essai lancé depuis son démarrage"
+            : "Console indisponible.",
+        );
+        $("#op-lancer").disabled =
+          !disponible || operateurEnvoi || operateurEtat.actif;
+        $("#op-arreter").disabled =
+          !disponible ||
+          operateurEnvoi ||
+          !operateurEtat.actif ||
+          !o?.id ||
+          operateurEtat.controle_externe;
+        if (operateurEtat?.controle_externe)
+          texte(
+            "#op-statut",
+            "Un essai est contrôlé par une autre console. Utiliser sa console pour demander son arrêt.",
+          );
+        $("#op-volume").disabled =
+          operateurEnvoi || $("#op-scenario").value === "repetition";
+        $("#op-rejouer").disabled =
+          !disponible || operateurEnvoi || !$("#op-rapport").value;
+      }
+
+      function listerRejeux() {
+        const select = $("#op-rapport"),
+          choix = select.value;
+        const rapports = (donnees?.rapports || []).filter((r) =>
+          /^experience.*\.json$/.test(r.nom),
+        );
+        select.replaceChildren();
+        if (!rapports.length) {
+          const o = el("option", "Aucun rapport disponible");
+          o.value = "";
+          select.append(o);
+        }
+        for (const r of rapports) {
+          const o = el("option", r.nom);
+          o.value = r.chemin;
+          select.append(o);
+        }
+        if (rapports.some((r) => r.chemin === choix)) select.value = choix;
+        afficherOperateur();
+      }
+
+      async function chargerOperateur() {
+        if (operateurLecture) return;
+        operateurLecture = true;
+        try {
+          const r = await fetch("/api/operateur", {
+            cache: "no-store",
+            signal: AbortSignal.timeout(3000),
+          });
+          if (!r.ok) throw Error("indisponible");
+          operateurEtat = await r.json();
+        } catch (e) {
+          operateurEtat = null;
+        } finally {
+          operateurLecture = false;
+          afficherOperateur();
+        }
+      }
+
+      function montrerRejeu(resultat) {
+        if (resultat.mode !== "REJEU" || resultat.actions_vm !== false)
+          throw Error("Réponse de rejeu invalide");
+        const box = vider("#op-rejeu"),
+          rapport = resultat.rapport?.contenu || {};
+        box.hidden = false;
+        box.append(el("h3", "REJEU DOCUMENTAIRE · aucune action VM"));
+        box.append(
+          el(
+            "p",
+            (rapport.run_id || "run N/D") +
+              " · " +
+              (rapport.type || "type N/D") +
+              " · du " +
+              (rapport.debut || "N/D") +
+              " au " +
+              (rapport.fin || "N/D"),
+            "petit doux",
+          ),
+        );
+        box.append(
+          el(
+            "p",
+            "Résultat mesuré déclaré : " +
+              (rapport.succes_mesure === true
+                ? "réussi"
+                : rapport.succes_mesure === false
+                  ? "non validé"
+                  : "non disponible"),
+          ),
+        );
+        for (const etape of (rapport.etapes || []).slice(0, 20)) {
+          const s = etape.snapshot || {},
+            ligne = el("div", null, "item");
+          ligne.append(
+            el("strong", etape.phase || "étape"),
+            el("p", "Heure invitée : " + heure(s.mur_epoch_ms), "petit doux"),
+          );
+          for (const f of Object.values(s.recepteur?.flux || {}).filter(
+            (f) => f.run_id === rapport.run_id,
+          ))
+            ligne.append(
+              el(
+                "p",
+                (f.source_id || "source N/D") +
+                  " · " +
+                  octets(f.recus) +
+                  " reçus · " +
+                  (f.etat || "N/D"),
+              ),
+            );
+          box.append(ligne);
+        }
+        const lien = (donnees?.rapports || []).find(
+          (r) => r.chemin === resultat.rapport?.chemin,
+        );
+        if (lien) {
+          const a = el("a", "Ouvrir la preuve complète");
+          a.href = lien.url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          box.append(a);
+        }
+      }
+
+      async function commanderOperateur(action) {
+        if (operateurEnvoi) return;
+        let corps;
+        if (action === "lancer")
+          corps = {
+            action,
+            scenario: $("#op-scenario").value,
+            volume_gio: Number($("#op-volume").value),
+          };
+        else if (action === "arreter")
+          corps = { action, operation_id: operateurEtat?.operation?.id };
+        else corps = { action: "rejouer", rapport: $("#op-rapport").value };
+        operateurEnvoi = true;
+        afficherOperateur();
+        texte("#op-erreur", "");
+        try {
+          const r = await fetch("/api/operateur", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(corps),
+            signal: AbortSignal.timeout(10000),
+          });
+          const resultat = await r.json();
+          if (!r.ok) throw Error(resultat.erreur || "Commande refusée");
+          if (action === "rejouer") montrerRejeu(resultat);
+          else operateurEtat = resultat;
+        } catch (e) {
+          texte(
+            "#op-erreur",
+            e.name === "TimeoutError"
+              ? "Réponse tardive : vérifier le statut avant de relancer."
+              : e.message,
+          );
+        } finally {
+          operateurEnvoi = false;
+          await chargerOperateur();
+          afficherOperateur();
+        }
+      }
+      function afficherStatutCollecte(etat) {
+        const zone = $("#avert");
+        // Ne pas réannoncer un état identique à chaque battement de 500 ms.
+        if (zone.dataset.etat === etat) return;
+        zone.dataset.etat = etat;
+        texte("#avert-message", $("#avert [data-message=\"" + etat + "\"]").textContent);
+      }
+      function fraicheur() {
+        afficherAlertes();
+        afficherActiviteAgent(donnees?.activite_agent);
+        afficherEtatEmotionnel();
+        if (!donnees) {
+          afficherStatutCollecte(echecCollecteur ? "absent" : "attente");
+          return;
+        }
+        const ecoule = Date.now() - dernierSucces,
+          age = donnees.telemetrie_invite?.age_ms,
+          ageInvite = fini(age) ? age + ecoule : null,
+          perime =
+            echecCollecteur ||
+            ecoule < 0 ||
+            ecoule > Math.max(3500, Number($("#periode").value) * 2.5);
+        texte(
+          "#collecteur-age",
+          "collecteur : " + fmt(ecoule / 1000) + " s depuis réponse",
+        );
+        texte(
+          "#age",
+          "mesure invitée : " +
+            (fini(ageInvite) ? fmt(ageInvite / 1000) + " s" : "N/D"),
+        );
+        const inviteOk = donnees.telemetrie_invite?.connectee === true &&
+          fini(age) && age >= 0 && fini(ageInvite) && ageInvite < 2500;
+        texte(
+          "#lien",
+          perime
+            ? "COLLECTEUR INJOIGNABLE"
+            : inviteOk
+              ? "invité connecté"
+              : "INVITÉ DÉCONNECTÉ",
+        );
+        $("#lien").className =
+          "jeton " + (!perime && inviteOk ? "etat-ok" : "etat-ko");
+        afficherStatutCollecte(perime ? "collecteur" : inviteOk ? "recent" : "invite");
+      }
+      function preuves(parent, noms) {
+        if (!Array.isArray(noms) || !noms.length) return;
+        const p = el("div", null, "preuves");
+        for (const nom of noms) {
+          const connu = (donnees?.rapports || []).find((r) => r.chemin === nom);
+          if (connu) {
+            const a = el("a", connu.nom);
+            a.href = connu.url;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            p.append(a);
+          } else p.append(el("span", nom + " · document absent", "petit doux"));
+        }
+        parent.append(p);
+      }
+      function detailsAlerte(obj) {
+        const strings = value => Array.isArray(value)
+          ? value.filter(x => typeof x === "string" && x.trim()).slice(0, 8).map(x => x.slice(0, 600)) : [];
+        const unknowns = [...strings(obj.unknowns), ...strings(obj.inconnues)];
+        let refus = typeof obj.refus === "string" ? obj.refus.slice(0, 600) : "";
+        // Parser le JSON reçu avant de réduire ses champs pour l'affichage.
+        // Les inconnues peuvent suivre les vingt observations initiales.
+        const facts = Array.isArray(obj.faits) ? obj.faits.slice(0, 30) : [];
+        for (const fact of facts) {
+          if (typeof fact !== "string" || fact.length > 4000) continue;
+          try {
+            const value = JSON.parse(fact);
+            if (value && typeof value === "object" && !Array.isArray(value)) {
+              unknowns.push(...strings(value.inconnues), ...strings(value.unknowns));
+              if (typeof value.refus === "string" && value.refus) refus = value.refus.slice(0, 600);
+            }
+          } catch (_) { /* Les observations textuelles restent des données. */ }
+        }
+        return {unknowns: [...new Set(unknowns)].slice(0, 8), refus};
+      }
+      function collecterAlertes(data, securite, maintenant, options = {}) {
+        const rows = new Map(), incidents = new Map(), groups = new Map(), decisions = new Map(), resolved = new Map();
+        const closed = new Set(["resolu", "résolu", "resolue", "résolue", "clos", "cloture", "clôturé",
+          "termine", "terminé", "ferme", "fermé", "ignore", "ignoré", "passed", "completed"]);
+        const flagged = new Set(["en_attente_preuves", "a_revoir", "analyse_indisponible", "attente_budget",
+          "observation_expiree", "decision_rejetee", "non_executee", "refusee", "refused", "clarification_requise"]);
+        const verified = new Set([...closed, "verifie", "verified"]);
+        const stamp = o => fini(o?.mur_epoch_ms) ? o.mur_epoch_ms : 0;
+        const status = o => typeof o?.statut === "string" ? o.statut.toLowerCase() : "a_verifier";
+        const list = v => Array.isArray(v) ? v.filter(x => typeof x === "string") : [];
+        for (const incident of Array.isArray(data?.incidents) ? data.incidents : []) {
+          if (incident && typeof incident.id === "string" &&
+              (!incidents.has(incident.id) || stamp(incident) >= stamp(incidents.get(incident.id)))) incidents.set(incident.id, incident);
+        }
+        for (const decision of Array.isArray(data?.decisions) ? data.decisions : []) {
+          if (!decision || typeof decision.id !== "string") continue;
+          const key = typeof decision.incident_id === "string" ? decision.incident_id : "decision:" + decision.id;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(decision);
+        }
+        for (const [key, group] of groups) {
+          const incident = incidents.get(key);
+          for (const decision of group.sort((a, b) => stamp(b) - stamp(a))) {
+            if (incident && closed.has(status(incident)) && stamp(incident) >= stamp(decision)) break;
+            const detail = detailsAlerte(decision);
+            if (verified.has(status(decision)) && !detail.unknowns.length && !detail.refus) {
+              resolved.set(key, decision);
+              break;
+            }
+            if (flagged.has(status(decision)) || detail.unknowns.length || detail.refus) {
+              decisions.set(key, decision);
+              break;
+            }
+            // Une nouvelle proposition n'atteste pas la résolution d'une ancienne erreur.
+          }
+        }
+        for (const [key, incident] of incidents) {
+          if (closed.has(status(incident))) continue;
+          if (resolved.has(key) && stamp(resolved.get(key)) > stamp(incident)) continue;
+          rows.set(key, {id: key, title: incident.titre || "Dossier à vérifier", states: [status(incident)],
+            detection: typeof incident.motif_detection === "string" ? incident.motif_detection : "",
+            reasons: incident.raison_publique ? [incident.raison_publique] : [],
+            observations: list(incident.faits), proofs: list(incident.preuves),
+            unknowns: detailsAlerte(incident).unknowns, source: incident.origine || "Incident publié",
+            at: stamp(incident)});
+        }
+        for (const [key, decision] of decisions) {
+          const detail = detailsAlerte(decision), incident = incidents.get(key);
+          const row = rows.get(key) || {id: key, title: incident?.titre || "Décision à vérifier", states: [],
+            detection: typeof incident?.motif_detection === "string" ? incident.motif_detection : "",
+            reasons: [], observations: list(incident?.faits), proofs: list(incident?.preuves), unknowns: [],
+            source: incident?.origine || decision.origine || "Décision publiée", at: 0};
+          row.states.push(status(decision));
+          if (decision.raison_publique) row.reasons.push(decision.raison_publique);
+          if (detail.refus) row.reasons.push("Refus : " + detail.refus);
+          row.unknowns.push(...detail.unknowns);
+          row.observations.push(...list(decision.faits));
+          row.proofs.push(...list(decision.preuves));
+          row.decision = decision.id;
+          row.at = Math.max(row.at, stamp(decision));
+          rows.set(key, row);
+        }
+        const system = (id, title, state, reason) => rows.set(id, {id, title, states: [state], reasons: [reason],
+          observations: [], proofs: [], unknowns: [], source: "État actuel du contrôleur", at: maintenant, system: true});
+        const elapsed = Math.max(0, maintenant - (options.dernierSucces || 0));
+        const collectorStale = !data || options.echecCollecteur || elapsed > Math.max(3500, (options.periode || 1000) * 2.5);
+        if (collectorStale) system("systeme:collecteur", "Collecteur indisponible", "donnees_non_actualisees",
+          "Les dossiers conservés ne confirment pas l’état actuel du système ; aucune clôture déduite du silence.");
+        else {
+          const age = data.telemetrie_invite?.age_ms;
+          if (!fini(age) || age < 0 || age + elapsed >= 2500 || data.telemetrie_invite?.connectee !== true)
+            system("systeme:telemetrie", "Télémétrie absente ou périmée", "telemetrie_indisponible",
+              "Les observations de l’invité ne sont pas assez fraîches pour confirmer son état.");
+        }
+        const watch = securite?.snapshot, securityElapsed = Math.max(0, maintenant - (securite?.recu_ms || 0));
+        if (!watch || securite.echec || watch.active !== true || !fini(watch.age_ms) || watch.age_ms < 0 || watch.age_ms + securityElapsed >= 15000)
+          system("systeme:veille", "Veille à vérifier", watch?.mode || "etat_indisponible",
+            !watch || securite?.echec ? "État de veille indisponible ; aucune surveillance actuelle confirmée."
+              : "Dernier état reçu : " + (watch.mode || "inconnu") + ". Battement absent, périmé ou veille inactive.");
+        if (watch && !securite.echec && fini(watch.repli_cloud_secondes) && watch.repli_cloud_secondes * 1000 > securityElapsed)
+          system("systeme:cloud", "Analyse Cloud temporairement indisponible", "reprise_differee",
+            "Nouvelle tentative différée ; les observations et décisions précédentes ne prouvent pas une analyse actuelle.");
+        return [...rows.values()].sort((a, b) => Number(b.system === true) - Number(a.system === true) || b.at - a.at);
+      }
+      let alertesPage = 0, alertesRegroupement = "recent", alertesDernierRendu = "";
+      const alertesOuvertes = new Map();
+      function categorieAlerte(row) {
+        if (row.system) return "Liaisons à vérifier";
+        if (row.unknowns.length || row.states.some(s => ["en_attente_preuves","clarification_requise"].includes(s))) return "Preuves à compléter";
+        if (row.decision) return "Décisions à vérifier";
+        return "Dossiers ouverts";
+      }
+      function afficherResumeAlertes(rows) {
+        const current=rows.filter(r=>r.system).length, historical=rows.length-current;
+        texte("#resume-alertes",rows.length);
+        texte("#resume-alertes-detail",historical+" dossier(s) · "+current+" liaison(s) à vérifier");
+        const counts=new Map();for(const row of rows){const category=categorieAlerte(row);counts.set(category,(counts.get(category)||0)+1);}
+        const counters=vider("#alertes-compteurs");
+        for(const [name,count] of counts)counters.append(el("span",count+" · "+name));
+        const elapsed=Date.now()-dernierSucces, age=donnees?.telemetrie_invite?.age_ms;
+        const fresh=donnees && !echecCollecteur && elapsed>=0 && elapsed<Math.max(3500,(Number($("#periode").value)||1000)*2.5) &&
+          donnees.telemetrie_invite?.connectee===true && fini(age) && age>=0 && age+elapsed<2500;
+        texte("#resume-fraicheur",fresh ? "Télémétrie récente · "+fmt((age+elapsed)/1000,1)+" s" : "État actuel non confirmé · mesures conservées");
+        $("#resume-fraicheur").className="petit "+(fresh ? "etat-ok" : "etat-attention");
+        const frames=Array.isArray(donnees?.invite)?donnees.invite:[],witness=frames.at(-1)?.service_temoin || {};
+        texte("#resume-service",fresh && typeof witness.disponible==="boolean" ? witness.disponible ? "Disponible" : "Indisponible" : "À vérifier");
+        $("#resume-service").className=fresh && witness.disponible===true ? "etat-ok" : "etat-attention";
+        texte("#resume-service-detail",fresh ? "Latence "+fmt(witness.latence_ms,1)+" ms · HTTP "+(witness.code ?? "N/D") : "Pas de disponibilité actuelle confirmée");
+      }
+      function afficherAlertes() {
+        const rows = collecterAlertes(donnees, securiteAlertes, Date.now(),
+          {dernierSucces, echecCollecteur, periode: Number($("#periode").value)});
+        afficherResumeAlertes(rows);
+        texte("#alertes-nombre", rows.length + " point(s) à examiner");
+        $("#alertes-nombre").className = "jeton " + (rows.length ? "etat-attention" : "doux");
+        const ordered=alertesRegroupement==="statut" ? [...rows].sort((a,b)=>categorieAlerte(a).localeCompare(categorieAlerte(b)) || b.at-a.at) : rows;
+        alertesPage=Math.min(alertesPage,Math.max(0,Math.ceil(ordered.length/5)-1));
+        const first=alertesPage*5,visible=ordered.slice(first,first+5);
+        $("#alertes-precedentes").disabled=alertesPage===0;
+        $("#alertes-suivantes").disabled=first+5>=ordered.length;
+        texte("#alertes-page",ordered.length ? (first+1)+"–"+(first+visible.length)+" sur "+ordered.length : "Aucun point ouvert");
+        texte("#alertes-portee",ordered.length>5 ? "5 points au maximum par page. Tous les dossiers et preuves restent accessibles avec les pages suivantes et les onglets Incidents et Décisions." : "Vue de lecture : aucune action ni clôture automatique. Ouvrir une ligne pour son historique et ses preuves.");
+        const signature=JSON.stringify([visible,alertesRegroupement,donnees?.rapports]);
+        if(signature===alertesDernierRendu)return;
+        alertesDernierRendu=signature;
+        const box=vider("#alertes-liste");
+        if (!rows.length) box.append(el("p", "Aucun point ouvert dans les états reçus. Ce constat ne garantit pas l’absence d’incident.", "vide"));
+        const labels = {a_verifier: "À vérifier", en_attente_preuves: "Preuves attendues",
+          a_revoir: "À revoir", analyse_indisponible: "Analyse indisponible", attente_budget: "Budget épuisé",
+          observation_expiree: "Observation expirée", decision_rejetee: "Décision rejetée", non_executee: "Non exécutée",
+          refusee: "Refusée", refused: "Refusée", clarification_requise: "Clarification requise",
+          failed: "Échec consigné", error: "Erreur consignée"};
+        for (const row of visible) {
+          const card=el("details",null,"alerte-compacte"),heading=el("summary"),title=el("div",null,"alerte-entete");
+          card.open=alertesOuvertes.get(row.id)===true;
+          card.ontoggle=()=>alertesOuvertes.set(row.id,card.open);
+          const reason=[...new Set(row.reasons)].join(" · ");
+          const followup=reason ? "Suivi public : "+reason : "Suivi public non renseigné dans cet enregistrement.";
+          const preview=row.system ? reason || categorieAlerte(row)
+            : (row.detection ? "Détection locale : "+row.detection+" · " : "")+followup;
+          title.append(el("h3",row.title),el("div",preview,"alerte-apercu"));
+          heading.append(title,el("span",heure(row.at),"alerte-date"),el("span",[...new Set(row.states)].map(s=>labels[s]||s).join(" · "),"jeton"));
+          const body=el("div",null,"alerte-details");
+          body.append(el("p",categorieAlerte(row)+" · "+row.id+(row.decision ? " · décision "+row.decision : "")+" · "+heure(row.at),"petit doux"));
+          if(row.detection)body.append(el("p","Motif de détection locale : "+row.detection));
+          body.append(el("p",row.system ? "Motif : "+reason : followup));
+          if(row.unknowns.length)body.append(el("p","Informations manquantes : "+[...new Set(row.unknowns)].join(" · ")));
+          if(row.observations.length){const observations=el("ul",null,"petit");[...new Set(row.observations)].forEach(value=>observations.append(el("li",value)));body.append(el("p","Observations reçues :","petit doux"),observations);}
+          else body.append(el("p","Observation détaillée non fournie dans cet état.","petit doux"));
+          body.append(el("p","Source : "+row.source,"petit doux"));
+          preuves(body,[...new Set(row.proofs)]);
+          card.append(heading,body);box.append(card);
+        }
+        const ids=new Set(rows.map(r=>r.id));for(const id of alertesOuvertes.keys())if(!ids.has(id))alertesOuvertes.delete(id);
+      }
+      function naviguerAlertes(delta) {
+        alertesPage=Math.max(0,alertesPage+delta);alertesDernierRendu="";afficherAlertes();
+      }
+      function regrouperAlertes(mode) {
+        alertesRegroupement=mode==="statut" ? "statut" : "recent";alertesPage=0;alertesDernierRendu="";afficherAlertes();
+      }
+      function incidentsDecisions() {
+        for (const [type, champ] of [
+          ["incidents", "titre"],
+          ["decisions", "action"],
+        ]) {
+          const tous = donnees[type] || [];
+          const clos = new Set([
+            "resolu",
+            "résolu",
+            "resolue",
+            "résolue",
+            "clos",
+            "cloture",
+            "clôturé",
+            "termine",
+            "terminé",
+            "ferme",
+            "fermé",
+            "ignore",
+            "ignoré",
+          ]);
+          const actifs =
+            type === "incidents"
+              ? tous.filter(
+                  (o) => !clos.has(String(o.statut || "").toLowerCase()),
+                )
+              : tous;
+          const objets =
+            type === "incidents" && !$("#incidents-historique").checked
+              ? actifs
+              : tous;
+          texte(
+            "#nb-" + type,
+            type === "incidents" ? tous.length + " dossiers" : objets.length,
+          );
+          if (type === "incidents")
+            texte(
+              "#incidents-resume",
+              actifs.length +
+                " au statut non clos dans le registre · " +
+                (tous.length - actifs.length) +
+                " dossiers clos conservés. Une décision vérifiée plus récente peut déjà résoudre un point dans la synthèse « À examiner ».",
+            );
+          const liste = vider("#" + type + "-liste");
+          if (!objets.length) {
+            liste.append(
+              el(
+                "div",
+                type === "incidents"
+                  ? "Aucun incident ouvert ou à revoir dans les dossiers reçus."
+                  : "Aucune décision enregistrée.",
+                "carte vide",
+              ),
+            );
+            continue;
+          }
+          objets
+            .slice()
+            .sort((a, b) => b.mur_epoch_ms - a.mur_epoch_ms)
+            .forEach((o) => {
+              const c = el("article", null, "carte");
+              const tete = el("div", null, "ligne bandeau");
+              tete.append(el("h2", o[champ]), el("span", o.statut, "jeton"));
+              c.append(
+                tete,
+                el(
+                  "div",
+                  heure(o.mur_epoch_ms) +
+                    " · " +
+                    o.id +
+                    (o.incident_id ? " · incident " + o.incident_id : ""),
+                  "petit doux",
+                ),
+              );
+              if (o.gravite) c.append(el("p", "Gravité : " + o.gravite));
+              c.append(
+                el(
+                  "p",
+                  "Origine : " + (o.origine || "non fournie"),
+                  "petit doux",
+                ),
+              );
+              if (type === "incidents") {
+                if (typeof o.motif_detection === "string" && o.motif_detection)
+                  c.append(el("p", "Motif de détection locale : " + o.motif_detection));
+                c.append(el("p", o.raison_publique
+                  ? "Suivi public : " + o.raison_publique
+                  : "Suivi public non renseigné dans cet enregistrement."));
+              } else c.append(el("p", o.raison_publique || "Raison publique non fournie."));
+              if (o.faits?.length) {
+                const ul = el("ul");
+                o.faits.forEach((f) => ul.append(el("li", f)));
+                c.append(ul);
+              }
+              preuves(c, o.preuves);
+              liste.append(c);
+            });
+        }
+        const chrono = vider("#chrono");
+        const marqueurs = donnees.marqueurs || [];
+        if (!marqueurs.length)
+          chrono.append(el("p", "Aucun marqueur enregistré.", "vide"));
+        marqueurs
+          .slice()
+          .reverse()
+          .forEach((m) => {
+            const c = el("div", null, "chronoligne");
+            c.append(
+              el("time", heure(m.mur_epoch_ms), "doux"),
+              el("b", m.phase),
+              el("span", m.texte),
+            );
+            preuves(c, m.preuves);
+            chrono.append(c);
+          });
+        const rapports = vider("#rapports-liste");
+        if (!donnees.rapports?.length)
+          rapports.append(
+            el("p", "Aucun compte rendu public disponible.", "vide"),
+          );
+        (donnees.rapports || []).forEach((r) => {
+          const c = el("div", null, "item"),
+            a = el("a", r.nom);
+          a.href = r.url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          c.append(
+            a,
+            el(
+              "p",
+              heure(r.modifie_ms) + " · " + octets(r.taille_o),
+              "petit doux",
+            ),
+          );
+          rapports.append(c);
+        });
+      }
+      function afficherCloud(appels) {
+        const tbody = vider("#cloud");
+        if (!appels.length) {
+          const tr = cellules(tbody, ["Aucun appel Cloud enregistré."]);
+          tr.firstChild.colSpan = 7;
+          return;
+        }
+        appels
+          .slice()
+          .reverse()
+          .forEach((a) => {
+            const statut =
+              (a.statut == null ? "sans réponse HTTP" : String(a.statut)) +
+              " / " +
+              (a.resultat || "non précisé");
+            let jetons = "N/D";
+            if (
+              ["jetons_total", "jetons_entree", "jetons_sortie"].some((k) =>
+                fini(a[k]),
+              )
+            )
+              jetons = ["jetons_total", "jetons_entree", "jetons_sortie"]
+                .map((k, i) =>
+                  fini(a[k])
+                    ? ["total ", "entrée ", "sortie "][i] + fmt(a[k], 0)
+                    : null,
+                )
+                .filter(Boolean)
+                .join(" · ");
+            const details =
+              [
+                a.code,
+                a.detail,
+                a.terminal,
+                a.job_statut,
+                a.replayed ? "reçu rejoué" : null,
+                a.correlation_id ? "corrélation " + a.correlation_id : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "—";
+            const tr = cellules(tbody, [
+              heure(a.mur_epoch_ms),
+              (a.methode ? a.methode + " " : "") + a.appel,
+              statut,
+              fini(a.ms) ? fmt(a.ms) + " ms" : "N/D",
+              a.tentative,
+              details,
+              jetons,
+            ]);
+            const ok =
+              a.resultat === "ok" ||
+              (!a.resultat &&
+                fini(a.statut) &&
+                a.statut >= 200 &&
+                a.statut < 300);
+            tr.children[2].className = ok ? "etat-ok" : "etat-ko";
+            tr.children[0].className = "n";
+            tr.children[3].className = "n";
+          });
+      }
+      async function chargerCloud() {
+        if (cloudCharge || vue !== "connexions") return;
+        cloudCharge = true;
+        try {
+          const q = cloudAvant == null ? "" : "&avant=" + cloudAvant;
+          const r = await fetch("/api/cloud?limite=50" + q, {
+            cache: "no-store",
+            signal: AbortSignal.timeout(4000),
+          });
+          if (!r.ok) throw Error("HTTP " + r.status);
+          cloudPage = await r.json();
+          afficherCloud(cloudPage.appels || []);
+          texte(
+            "#cloud-page",
+            cloudPage.total
+              ? `Appels ${cloudPage.debut + 1} à ${cloudPage.fin} / ${cloudPage.total}${cloudAvant == null ? " · direct" : " · historique"}`
+              : "Aucun appel enregistré",
+          );
+          $("#cloud-precedent").disabled = cloudPage.avant == null;
+          texte("#cloud-erreur", "");
+        } catch (e) {
+          texte(
+            "#cloud-erreur",
+            "Historique Cloud indisponible : dernière page conservée.",
+          );
+        } finally {
+          cloudCharge = false;
+        }
+      }
+      function resumeCloud() {
+        const c = donnees.cumuls_cloud || {},
+          bloc = vider("#cloud-resume");
+        for (const [titre, val] of [
+          ["Appels enregistrés", c.appels],
+          ["Réussis", c.reussis],
+          ["En erreur", c.erreurs],
+          ["Résultat inconnu", c.inconnus],
+          ["Reçus rejoués", c.rejoues],
+          [
+            "Latence médiane · tous les appels",
+            fini(c.latence_mediane_ms)
+              ? fmt(c.latence_mediane_ms) + " ms"
+              : null,
+          ],
+        ]) {
+          const d = el("div", null, "metrique");
+          d.append(
+            el("strong", val == null ? "N/D" : val),
+            el("span", titre, "petit doux"),
+          );
+          bloc.append(d);
+        }
+        let tokens =
+          c.jetons_total == null
+            ? "Jetons totaux hors reçus rejoués : N/D."
+            : "Jetons totaux déclarés (hors reçus rejoués) : " +
+              fmt(c.jetons_total, 0) +
+              ".";
+        if (c.jetons_entree != null)
+          tokens += " Entrée : " + fmt(c.jetons_entree, 0) + ".";
+        if (c.jetons_sortie != null)
+          tokens += " Sortie : " + fmt(c.jetons_sortie, 0) + ".";
+        texte(
+          "#cloud-portee",
+          (c.perimetre || "Tous les journaux") +
+            " depuis " +
+            heure(c.premier_ms) +
+            ". " +
+            tokens +
+            " Usage fourni pour " +
+            (c.appels_avec_jetons ?? 0) +
+            " / " +
+            (c.appels ?? 0) +
+            " appels ; aucune estimation des valeurs manquantes.",
+        );
+        texte(
+          "#cloud-global",
+          "Cloud · cumul du journal : " +
+            (c.appels ?? "N/D") +
+            " appels · " +
+            (c.erreurs ?? "N/D") +
+            " erreurs consignées",
+        );
+      }
+      function texteGeographie(row) {
+        const g = row?.geolocalisation || {};
+        if (g.status === "approximatif" && /^[A-Z]{2}$/.test(g.country_code || ""))
+          return "pays approximatif : " + g.country_code;
+        if (g.status === "non_localisable") return "IP privée/réservée : non localisable";
+        return "localisation inconnue" + (g.reason ? " (" + String(g.reason).slice(0,120) + ")" : "");
+      }
+      function afficherGeographie(e) {
+        const box = vider("#defense-geographie");
+        for (const [label, data] of [["Authentification", e?.authentification || {}], ["SSH", e?.ssh || {}]]) {
+          const geo = data.geoip || {}, source = geo.source || {}, p = document.createElement("p"); p.className="petit doux";
+          p.textContent = label + " · base " + (geo.available === true ? "locale vérifiée" : "non disponible") +
+            " · version " + (source.release || "N/D") + (source.stale ? " · base ancienne" : ""); box.append(p);
+          const rows = [...(Array.isArray(data.events) ? data.events : []), ...(Array.isArray(data.alertes) ? data.alertes : []),
+            ...(Array.isArray(data.campagnes) ? data.campagnes : []).flatMap(c => Array.isArray(c.sources) ? c.sources : [])];
+          const seen = new Set(); let shown=0;
+          for (const row of rows) {
+            const ip = row?.source_ip || row?.ip;
+            if (typeof ip !== "string" || seen.has(ip) || shown>=32) continue;
+            seen.add(ip); shown++;
+            const line=document.createElement("p");line.className="petit";
+            line.textContent=label+" · "+ip+" · "+texteGeographie(row);box.append(line);
+          }
+          if (!shown) { const p=document.createElement("p");p.className="petit doux";p.textContent="Aucune adresse récente à localiser dans ce journal.";box.append(p); }
+          if (geo.truncated) { const p=document.createElement("p");p.className="petit doux";p.textContent="Enrichissement borné : certaines adresses ne sont pas localisées.";box.append(p); }
+        }
+      }
+      function afficherIntegriteArbres(e) {
+        const env=e?.integrite_arbres || {}, s=env.snapshot || {}, metrics=s.metrics || {}, box=vider("#integrite-arbres-changements");
+        const age=fini(s.observed_ms) ? Date.now()-s.observed_ms : null;
+        const valid=env.available===true && s.schema==="sawm-large-tree-integrity/v1" && fini(age) && age>=0;
+        const recent=valid && age<=300000;
+        const labels={unchanged:"Aucune différence au dernier scan",changed:"Différences à examiner",inconclusive:"Scan inconclusif"};
+        texte("#integrite-arbres-etat",valid ? (labels[s.status] || "Résultat inconnu")+(recent ? "" : " · ancien") : "Aucun scan vérifiable");
+        $("#integrite-arbres-etat").className="jeton "+(valid && s.status==="changed" ? "etat-ko" : recent && s.status==="unchanged" ? "etat-ok" : "etat-attention");
+        texte("#integrite-arbres-source",valid ? s.root+" · dernier scan "+heure(s.observed_ms)+" · âge "+fmt(age/1000,0)+" s · référence "+(s.baseline_sha256 || "non disponible") : "État : "+(env.status || "scan absent"));
+        texte("#integrite-arbres-mesures",valid ? octets(metrics.bytes_read)+" lus · "+fmt(metrics.files,0)+" fichiers · scan "+fmt(metrics.scan_seconds,3)+" s · CPU cumulé "+fmt(metrics.cpu_seconds,3)+" s · pic mémoire du processus "+octets(metrics.process_peak_rss_bytes) : "Aucune mesure actuelle confirmée.");
+        if (!valid) return;
+        if (s.reason) { const p=document.createElement("p");p.className="petit etat-attention";p.textContent="Motif : "+s.reason;box.append(p); }
+        const kinds={added:"Ajout",deleted:"Suppression",rename_candidate:"Renommage probable",type_changed:"Type modifié",content_changed:"Contenu modifié",object_replaced:"Objet remplacé",permissions_changed:"Permissions modifiées",owner_changed:"Propriétaire modifié"};
+        const counts=s.counts && typeof s.counts==="object" ? s.counts : {}, summary=document.createElement("p");summary.className="petit doux";
+        summary.textContent=Object.entries(counts).map(([key,value])=>(kinds[key] || key)+" : "+value).join(" · ") || (s.status==="unchanged" ? "Référence inchangée sur le périmètre scanné." : "Aucun inventaire complet utilisable.");box.append(summary);
+        const changes=Array.isArray(s.changes) ? s.changes : [];
+        for (const change of changes.slice(0,20)) {
+          const p=document.createElement("p");p.className="petit";
+          p.textContent=(kinds[change.kind] || "Changement")+" · "+change.path+
+            (change.previous_path ? " · depuis "+change.previous_path : "")+
+            (fini(change.changed_block_count) ? " · "+change.changed_block_count+" bloc(s) différents" : "")+
+            (change.previous !== undefined ? " · "+JSON.stringify(change.previous)+" → "+JSON.stringify(change.current) : "");box.append(p);
+        }
+        if (s.changes_truncated || changes.length>20) { const p=document.createElement("p");p.className="petit doux";p.textContent="Liste abrégée ; les compteurs portent sur le scan complet.";box.append(p); }
+      }
+      function afficherDefenseFichiers(e) {
+        afficherIntegriteArbres(e);
+        afficherGeographie(e);
+        const envelope = e?.defense_fichiers || {}, s = envelope.snapshot || {};
+        const fresh = envelope.available === true && envelope.status === "etat_recu" &&
+          fini(s.observed_ms) && Date.now() - s.observed_ms >= 0 && Date.now() - s.observed_ms < 5000;
+        texte("#defense-fichiers-etat", fresh && s.active === true ? "Garde actif dans la VM" : "Garde non confirmé / état ancien");
+        $("#defense-fichiers-etat").className = "jeton " + (fresh && s.active === true ? "etat-ok" : "etat-attention");
+        texte("#defense-fichiers-capteur", "Capteur VFS : " + (s.sensor?.active === true ? "actif" : "non actif") +
+          " · écritures vues : " + fmt(s.sensor?.observed_events, 0) + " · pertes signalées : " + fmt(s.sensor?.loss_notifications, 0) +
+          " · cycle local : " + fmt(s.cycle_ms, 1) + " ms · " + heure(s.observed_ms));
+        const render = (selector, rows, historical) => {
+          const box = vider(selector);
+          if (!Array.isArray(rows) || !rows.length) { const p = document.createElement("p"); p.className = "petit doux";
+            p.textContent = historical ? "Aucune alerte conservée dans cet instantané." : "Aucune cible confirmée."; box.append(p); return; }
+          for (const row of rows.slice(-16)) {
+            const card = document.createElement("div"); card.className = "item";
+            const title = document.createElement("h3"); title.textContent = row.unit || "Cible inconnue"; card.append(title);
+            const auth = row.authorization || {}, d = row.diagnostic || {}, a = row.action;
+            const lines = [row.path || "Chemin absent", (d.priorite || "inconnue") + " · " + (d.recommandation || "signaler") + " · " + (d.raison || row.error || "preuve incomplète"),
+              "Autorisation : " + (auth.authorized === true ? "signature vérifiée · " + auth.principal + " · expire " + heure(auth.expires_at_ms) : auth.reason || "non vérifiable"),
+              "Action locale : " + (a ? (a.applique ? "arrêt appliqué" : "refusé : " + (a.refus?.motif || "inconnu")) + " · effet " + (a.effet_verifie ? "vérifié" : "non confirmé") : "aucune dans cette mesure"),
+              "Diagnostic : " + fmt(row.metrics?.diagnostic_ms, 3) + " ms · action : " + fmt(row.metrics?.action_ms, 1) + " ms"];
+            if (d.inconnues?.length) lines.push("À vérifier : " + d.inconnues.join(", "));
+            for (const line of lines) { const p = document.createElement("p"); p.className = "petit doux"; p.textContent = line; card.append(p); }
+            box.append(card);
+          }
+        };
+        render("#defense-fichiers-liste", s.targets, false);
+        render("#defense-fichiers-historique", s.alertes, true);
+        const authBox = vider("#defense-auth-campagnes"), auth = e?.authentification || {};
+        const campaigns = Array.isArray(auth.campagnes) ? auth.campagnes : [];
+        const p = document.createElement("p"); p.className = "petit doux";
+        p.textContent = "Journal d’authentification : " + (auth.status || "indisponible") + " · " + campaigns.length + " rapprochement(s) dans la fenêtre de cinq minutes."; authBox.append(p);
+        for (const c of campaigns) { const p = document.createElement("p"); p.className = "petit etat-attention";
+          p.textContent = c.hypothese + " · " + (c.sources || []).map(x => x.ip + " (" + x.echecs_observes_max_fenetre + " échecs, "+texteGeographie(x)+")").join(" / ") + " · identité commune non établie."; authBox.append(p); }
+        const ssh = e?.ssh || {}, summary = document.createElement("p"); summary.className = "petit doux";
+        summary.textContent = "SSH réel · " + (ssh.available ? "journal lu" : "journal indisponible") + " · " +
+          fmt(ssh.observed_events,0) + " événements dans les cinq dernières minutes · " + (ssh.alertes || []).length + " alerte(s) · aucun blocage SSH automatique par cette sonde."; authBox.append(summary);
+        for (const alert of [...(ssh.alertes || []),...(ssh.campagnes || [])].slice(0,16)) {
+          const p = document.createElement("p"); p.className="petit etat-attention"; p.textContent=JSON.stringify(alert); authBox.append(p);
+        }
+      }
+
+      function afficherFichiers(f) {
+        const lignes = vider("#fichiers-table"),
+          compteurs = vider("#fichiers-compteurs");
+        if (!f || typeof f !== "object") {
+          texte(
+            "#fichiers-info",
+            "Données non disponibles : aucun capteur de fichiers reçu.",
+          );
+          return;
+        }
+        const observations = Array.isArray(f.evenements) ? f.evenements : [];
+        const lectures = new Set(["ouverture", "lecture", "fermeture"]);
+        const filtre = $("#fichiers-filtre").checked;
+        const visibles = observations
+          .filter(
+            (e) =>
+              !filtre ||
+              (Array.isArray(e.operations) &&
+                e.operations.some((o) => !lectures.has(o))),
+          )
+          .slice(-20)
+          .reverse();
+        texte(
+          "#fichiers-info",
+          (f.source || "source N/D") +
+            " · périmètre : " +
+            (f.perimetre || "N/D") +
+            " · répertoires : " +
+            (f.repertoires ?? "N/D") +
+            " · pertes de file : " +
+            (f.pertes_file ?? "N/D") +
+            " · " +
+            (f.attribution_pid === true
+              ? "attribution PID fournie"
+              : "PID non attribuable par ce capteur") +
+            (f.erreur ? " · erreur : " + f.erreur : "") +
+            " · " +
+            visibles.length +
+            " / " +
+            observations.length +
+            " observations du dernier relevé affichées",
+        );
+        for (const [nom, valeur] of Object.entries(f.compteurs || {}))
+          compteurs.append(
+            el("span", nom + " : " + (fini(valeur) ? fmt(valeur, 0) : "N/D")),
+          );
+        if (!visibles.length) {
+          const tr = cellules(lignes, [
+            filtre
+              ? "Aucune autre opération dans les observations récentes reçues."
+              : "Aucune observation récente reçue.",
+          ]);
+          tr.firstChild.colSpan = 4;
+        }
+        visibles.forEach((e) =>
+          cellules(lignes, [
+            heure(e.mur_epoch_ms),
+            e.chemin,
+            Array.isArray(e.operations) ? e.operations.join(", ") : null,
+            e.pid,
+          ]),
+        );
+      }
+      function rendu() {
+        const d = donnees,
+          inv = d.invite || [],
+          hote = d.hote || [],
+          e = dernier(inv) || {},
+          h = dernier(hote) || {},
+          t = d.telemetrie_invite || {};
+        texte("#run", "session collecteur " + d.run_id);
+        texte("#mode", d.mode);
+        $("#mode").className =
+          "jeton " + (d.mode === "DIRECT" ? "etat-ok" : "etat-attention");
+        const cpu = inv.slice(1).map((b, i) => {
+          const a = inv[i];
+          if (!a.cpu || !b.cpu || b.mur_epoch_ms - a.mur_epoch_ms > 5000)
+            return null;
+          const dt = b.cpu.total_jiffies - a.cpu.total_jiffies,
+            di = b.cpu.oisif_jiffies - a.cpu.oisif_jiffies;
+          return dt > 0 && di >= 0
+            ? Math.max(0, Math.min(100, (1 - di / dt) * 100))
+            : null;
+        });
+        texte("#cpu", fmt(dernier(cpu)) + " % occupé");
+        texte("#resume-cpu",fmt(dernier(cpu))+" %");
+        courbe("#g-resume-cpu",[cpu],["--accent"],100);
+        courbe("#g-cpu", [cpu], ["--accent"], 100);
+        texte("#coeurs", e.cpu_coeurs);
+        texte("#load", fmt(e.charge_moyenne?.[0], 2));
+        texte("#ram", octets(e.memoire?.utilisee_o) + " utilisés");
+        texte("#resume-ram",octets(e.memoire?.utilisee_o));
+        courbe("#g-resume-ram",[inv.map(x=>x.memoire?.utilisee_o)],["--ok"],e.memoire?.total_o);
+        texte("#resume-fenetre",inv.length ? "Graphiques : "+heure(inv[0].mur_epoch_ms)+" → "+heure(e.mur_epoch_ms)+" · "+inv.length+" mesures reçues · gauche : plus ancien, droite : plus récent. Les coupures restent visibles." : "Graphiques : période mesurée non disponible.");
+        courbe(
+          "#g-ram",
+          [inv.map((x) => x.memoire?.utilisee_o)],
+          ["--accent"],
+          e.memoire?.total_o,
+        );
+        texte("#ram-dispo", octets(e.memoire?.disponible_o));
+        texte("#swap", octets(e.memoire?.swap_utilise_o));
+        texte("#disq", octets(e.disque?.libre_o) + " libres");
+        courbe(
+          "#g-io",
+          [
+            taux(inv, (x) => x.disque?.lus_o),
+            taux(inv, (x) => x.disque?.ecrits_o),
+          ],
+          ["--accent", "--attention"],
+        );
+        const iface =
+            Object.keys(e.reseau || {}).find((n) => n !== "lo") ||
+            Object.keys(e.reseau || {})[0],
+          emis = taux(inv, (x) => x.reseau?.[iface]?.emis_o),
+          recus = taux(inv, (x) => x.reseau?.[iface]?.recus_o);
+        texte(
+          "#interface",
+          iface ? "Interface mesurée : " + iface : "Interface non disponible",
+        );
+        texte("#net", octets(dernier(emis)) + "/s émis");
+        courbe("#g-net", [emis, recus], ["--accent", "--ok"]);
+        texte("#rec", octets(e.recepteur?.octets_recus));
+        courbe(
+          "#g-rec",
+          [inv.map((x) => x.recepteur?.octets_recus)],
+          ["--attention"],
+        );
+        texte("#rec-conn", e.recepteur?.connexions);
+        texte(
+          "#rec-age",
+          fini(e.recepteur?.dernier_octet_epoch_ms)
+            ? fmt(
+                Math.max(0, Date.now() - e.recepteur.dernier_octet_epoch_ms) /
+                  1000,
+              ) + " s"
+            : null,
+        );
+        const sv = e.service_temoin || {};
+        etat("#svc", sv.disponible, "disponible", "indisponible");
+        texte(
+          "#svc-lat",
+          fini(sv.latence_ms) ? fmt(sv.latence_ms) + " ms" : null,
+        );
+        const temoins = inv.filter(
+            (x) => typeof x.service_temoin?.disponible === "boolean",
+          ),
+          dispo = temoins.filter((x) => x.service_temoin.disponible).length;
+        texte(
+          "#svc-dispo",
+          temoins.length
+            ? fmt((100 * dispo) / temoins.length) +
+                " % (" +
+                dispo +
+                "/" +
+                temoins.length +
+                ")"
+            : null,
+        );
+        texte(
+          "#svc-err",
+          sv.erreur || (sv.disponible === true ? "aucune" : null),
+        );
+        courbe(
+          "#g-svc",
+          [
+            inv.map((x) =>
+              x.service_temoin?.disponible ? x.service_temoin.latence_ms : null,
+            ),
+          ],
+          ["--ok"],
+        );
+        const roles = vider("#roles"),
+          barre = vider("#barre-roles"),
+          parts = {};
+        for (const r of ["defense", "charge", "legitime"])
+          parts[r] = dernier(taux(inv, (x) => x.tranches?.[r]?.cpu_usage_usec));
+        const somme = Object.values(parts).reduce(
+          (s, x) => s + (fini(x) ? x : 0),
+          0,
+        );
+        for (const [i, r] of ["defense", "charge", "legitime"].entries()) {
+          const tr = e.tranches?.[r] || {};
+          cellules(roles, [
+            {
+              defense: "Défense",
+              charge: "Charge de test",
+              legitime: "Légitime",
+            }[r] + (tr.presente === false ? " (absent)" : ""),
+            fini(parts[r]) ? fmt(parts[r] / 10000) + " %" : "N/D",
+            octets(tr.memoire_o),
+            tr.pids,
+          ]);
+          if (somme > 0 && fini(parts[r])) {
+            const b = el("i");
+            b.style.width = (100 * parts[r]) / somme + "%";
+            b.style.background = [
+              "var(--accent)",
+              "var(--attention)",
+              "var(--ok)",
+            ][i];
+            barre.append(b);
+          }
+        }
+        afficherDefenseFichiers(e);
+        const cp = e.capteurs || {};
+        etat("#s-ebpf", cp.ebpf_exec_actif, "attaché", "arrêté");
+        etat("#s-lsm", cp.lsm_attache, "attachée", "absente");
+        for (const [id, key] of [
+          ["s-exec", "lignes_exec"],
+          ["s-perte", "pertes_bpftrace"],
+          ["s-vues", "ouvertures_vues"],
+          ["s-refus", "refus_ouverture"],
+          ["s-exec-refus", "refus_execution"],
+          ["s-exempt", "exemptions_temoin"],
+        ])
+          texte("#" + id, cp[key]);
+        texte(
+          "#h-cpu",
+          fini(h.qemu?.cpu_pct) ? fmt(h.qemu.cpu_pct) + " %" : null,
+        );
+        texte("#h-rss", octets(h.qemu?.rss_o));
+        texte(
+          "#c-cpu",
+          fini(h.controleur?.cpu_pct) ? fmt(h.controleur.cpu_pct) + " %" : null,
+        );
+        texte("#c-rss", octets(h.controleur?.rss_o));
+        texte("#h-disq", octets(h.disque?.libre_o));
+        texte("#h-vm", h.vm_statut);
+        texte("#h-age", "Dernière mesure hôte : " + heure(h.mur_epoch_ms));
+        courbe(
+          "#g-hote",
+          [
+            hote.map((x) => x.qemu?.cpu_pct),
+            hote.map((x) => x.controleur?.cpu_pct),
+          ],
+          ["--attention", "--accent"],
+        );
+        texte("#t-conn", t.connexions);
+        texte("#t-deconn", t.deconnexions);
+        texte("#t-nb", t.echantillons);
+        const conns = Array.isArray(e.connexions)
+            ? e.connexions
+            : Array.isArray(e.connexions?.lignes)
+              ? e.connexions.lignes
+              : null,
+          ct = vider("#conn-table");
+        texte(
+          "#conn-info",
+          conns
+            ? conns.length +
+                " connexion(s) observée(s) · " +
+                heure(e.mur_epoch_ms) +
+                (e.connexions_couverture ? " · " + e.connexions_couverture : "")
+            : e.connexions_erreur ||
+                "Non disponible : aucun inventaire de connexions reçu.",
+        );
+        if (conns)
+          conns
+            .slice()
+            .sort(
+              (a, b) => Number(b.etat === "ESTAB") - Number(a.etat === "ESTAB"),
+            )
+            .forEach((c) =>
+              cellules(ct, [
+                c.protocole,
+                c.locale ?? c.local,
+                c.distante ?? c.remote,
+                c.etat ?? c.state,
+                [c.pid, c.processus].filter((x) => x != null).join(" / ") ||
+                  null,
+              ]),
+            );
+        const ft = vider("#flux-table"),
+          flux = e.recepteur?.flux;
+        if (
+          flux &&
+          typeof flux === "object" &&
+          !Array.isArray(flux) &&
+          Object.keys(flux).length
+        ) {
+          for (const [id, f] of Object.entries(flux).sort(
+            (a, b) =>
+              Number(b[1].etat === "en_cours") -
+              Number(a[1].etat === "en_cours"),
+          ))
+            cellules(ft, [
+              (f.source_id || "N/D") + " / " + id,
+              f.run_id,
+              octets(f.annonces),
+              octets(f.recus),
+              f.etat,
+              heure(f.dernier_ms),
+            ]);
+        } else {
+          const tr = cellules(ft, [
+            flux && typeof flux === "object"
+              ? "Aucun flux enregistré."
+              : "Données de flux non disponibles.",
+          ]);
+          tr.firstChild.colSpan = 6;
+        }
+        const retention = d.retention_telemetrie || {};
+        texte("#securite-stockage", "Archivage télémétrie : " + (typeof retention.ecriture_telemetrie_suspendue !== "boolean" ? "N/D" : retention.ecriture_telemetrie_suspendue ? "SUSPENDU au plafond ; mesures directes actives" : "actif") + " · " + octets(retention.taille_series_o) + " / " + octets(retention.limite_series_o) + " · " + fmt(retention.echantillons_non_archives, 0) + " échantillons non archivés depuis démarrage. Preuves existantes conservées ; événements Cloud et décisions toujours enregistrés.");
+        $("#securite-stockage").className = "petit " + (retention.ecriture_telemetrie_suspendue ? "etat-attention" : "doux");
+        afficherFichiers(e.fichiers);
+        listerRejeux();
+        resumeCloud();
+        incidentsDecisions();
+        afficherDispositions(d.marqueurs);
+        texte(
+          "#pied",
+          "Journal courant : " +
+            (d.fichier_series || "N/D") +
+            " · reprise de " +
+            (d.reprise?.journaux ?? 0) +
+            " journaux, " +
+            (d.reprise?.lignes_invalides ?? 0) +
+            " lignes invalides ignorées. La fermeture de cette page n’arrête aucune mesure.",
+        );
+        fraicheur();
+      }
+      function afficherActiviteAgent(activity) {
+        const box=vider("#activite-agent-moteurs"),now=Date.now();
+        const valid=activity?.schema==="sawm-agent-activity/v1";
+        const age=valid && fini(activity.observed_ms)?now-activity.observed_ms:null;
+        const current=fini(age)&&age>=0&&age<15000;
+        const phases={analyse_en_cours:"Analyse en cours",attente_reponse_sawm:"Réponse SAWM attendue",observation_locale:"Observation locale",attente_analyse:"Analyse en attente",budget_cloud_epuise:"Budget Cloud atteint",repli_cloud:"Reprise Cloud différée",veille_indisponible:"Veille indisponible",rejeu:"Relecture historique"};
+        texte("#activite-agent-phase",current ? phases[activity.phase] || "Phase non reconnue" : "Activité actuelle non confirmée");
+        $("#activite-agent-phase").className="jeton "+(current && activity.veille_fresh===true && ["observation_locale","analyse_en_cours","attente_reponse_sawm"].includes(activity.phase) ? "etat-ok" : "etat-attention");
+        texte("#activite-agent-source",valid ? "Dernière activité consignée : "+heure(activity.last_activity_ms)+" · battement "+(current && activity.veille_fresh===true ? "récent" : "non confirmé")+" · observation locale "+(current && activity.local_observation_active===true ? "active selon la télémétrie" : "non confirmée") : "Aucune activité instrumentée reçue.");
+        const names={not_observed:"Aucun appel observé",http_ok:"HTTP réussi",completed:"Tour terminé",error:"Erreur consignée",incomplete:"Réponse incomplète",unknown:"Résultat inconnu"};
+        for(const [key,label] of [["tsst","TSST · rappel"],["odvl","ODVL · classement"],["sawm","SAWM · analyse"]]) {
+          const value=valid ? activity.engines?.[key] || {} : {},when=value.observed_ms;
+          const fresh=current && value.fresh===true && fini(when) && now-when>=0 && now-when<=300000;
+          const card=el("div",null,"item");card.append(el("h3",label));
+          card.append(el("p",(names[value.status] || "Aucune mesure")+(fini(when) ? fresh ? " · récent" : " · historique" : ""),fresh && ["http_ok","completed"].includes(value.status) ? "petit etat-ok" : "petit doux"));
+          card.append(el("p",heure(when)+" · HTTP "+(Number.isInteger(value.http_status)?value.http_status:"N/D")+" · "+fmt(value.latency_ms,1)+" ms · tentative "+fmt(value.attempt,0),"petit doux"));
+          if(value.terminal)card.append(el("p","Événement final : "+String(value.terminal).slice(0,80),"petit doux"));
+          box.append(card);
+        }
+        const memory=valid?activity.memory:null;
+        const freshMemory=current && memory?.fresh===true && fini(memory.observed_ms) && now-memory.observed_ms>=0 && now-memory.observed_ms<=300000;
+        texte("#activite-agent-memoire",memory ? "Dernier rappel "+(freshMemory ? "récent" : "historique")+" · "+heure(memory.observed_ms)+" · "+fmt(memory.evidence_count,0)+" preuves disponibles, "+fmt(memory.used_evidence_count,0)+" utilisées · "+(memory.odvl_applied===true ? "classement ODVL appliqué après contrôle" : "classement ODVL non appliqué")+(memory.reused===true ? " · rappel réutilisé" : "") : "Aucun rappel instrumenté reçu ; aucun nombre de souvenirs ni apport ODVL n’est déduit.");
+      }
+      function objetDisposition(v) {
+        return v !== null && typeof v === "object" && !Array.isArray(v);
+      }
+      function scoreDisposition(v) {
+        return fini(v) && v >= 0 && v <= 100;
+      }
+      function texteDisposition(v, max = 240) {
+        return typeof v === "string" && v ? v.slice(0, max) : "N/D";
+      }
+      let emotionInstantane = null;
+      function afficherEtatEmotionnel() {
+        const scores=vider("#emotion-scores"),mefiance=vider("#emotion-mefiance");
+        const snapshot=emotionInstantane?.snapshot, marqueur=emotionInstantane?.marqueur;
+        const age=fini(marqueur?.mur_epoch_ms)?Date.now()-marqueur.mur_epoch_ms:null;
+        const recent=!!snapshot && fini(age) && age>=0 && age<=300000;
+        texte("#emotion-statut",snapshot ? recent ? "Instantané récent" : "Historique" : "Non disponible");
+        $("#emotion-statut").className="jeton "+(recent ? "etat-ok" : "etat-attention");
+        if(!snapshot) {
+          texte("#emotion-source","Pas d’état actuel confirmé. "+(marqueur ? "Dernier instantané invalide ; aucun score repris." : "Aucun instantané de dispositions reçu."));
+          scores.append(el("p","Aucune valeur disponible.","petit doux"));
+          mefiance.append(el("p","Méfiance contextuelle : non disponible.","petit doux"));
+          return;
+        }
+        texte("#emotion-source",(recent ? "Dernier état simulé reçu" : "Pas d’état actuel confirmé ; dernier état simulé historique")+" · "+heure(marqueur.mur_epoch_ms)+" · âge "+(fini(age)&&age>=0 ? fmt(age/1000,0)+" s" : "non établi")+" · disposition_serveur · révision "+snapshot.revision+" · heuristique locale.");
+        for(const [label,score] of [["Vigilance",snapshot.etat.vigilance],["Confiance dans les preuves",snapshot.etat.confiance],["Incertitude (100 − confiance)",100-snapshot.etat.confiance]]) {
+          const card=el("div",null,"item");
+          card.append(el("h3",label),el("p",fmt(score,0)+"/100",recent ? "valeur" : "valeur doux"));
+          scores.append(card);
+        }
+        mefiance.append(el("h3","Méfiance contextuelle · unités techniques"));
+        const targets=Object.entries(snapshot.etat.mefiance_par_cible).slice(0,128);
+        if(!targets.length)mefiance.append(el("p","Aucune cible suivie dans cet instantané ; ce n’est pas une preuve d’innocence.","petit doux"));
+        for(const [unit,score] of targets.slice(0,3)) {
+          const refs=snapshot.motifs.filter(m=>objetDisposition(m) && m.actif!==false && objetDisposition(m.source_ref) && m.source_ref.unit===unit).slice(-3);
+          mefiance.append(el("p",texteDisposition(unit,160)+" : "+(scoreDisposition(score)?fmt(score,0)+"/100":"N/D")));
+          mefiance.append(el("p",refs.length ? "Sources actives du journal : "+refs.map(m=>texteDisposition(m.source_ref.id,160)+" (événement "+texteDisposition(m.event_id,160)+")").join(" ; ") : "Source de cette valeur absente des derniers motifs conservés ; attribution supplémentaire non déduite.","petit doux"));
+        }
+        if(targets.length>3)mefiance.append(el("p",(targets.length-3)+" autre(s) cible(s) dans le détail « Modèle de dispositions » ci-dessous.","petit doux"));
+        mefiance.append(el("p","Ces valeurs portent sur les unités citées, jamais sur la culpabilité d’une personne.","petit doux"));
+      }
+      function afficherDispositions(marqueurs) {
+        const traits = vider("#dispositions-traits"),
+          etat = vider("#dispositions-etat"),
+          cibles = vider("#dispositions-cibles"),
+          motifs = vider("#dispositions-motifs");
+        const marqueur = Array.isArray(marqueurs)
+          ? marqueurs.slice().reverse().find(m => m?.phase === "disposition_serveur")
+          : null;
+        let snapshot = null;
+        try {
+          if (typeof marqueur?.texte === "string" && marqueur.texte.length <= 65536) {
+            const value = JSON.parse(marqueur.texte);
+            if (objetDisposition(value) && value.schema === "sawm-server-dispositions/v1" &&
+                typeof value.entity_id === "string" && Number.isInteger(value.revision) && value.revision >= 0 &&
+                objetDisposition(value.traits) && objetDisposition(value.etat) &&
+                scoreDisposition(value.etat.vigilance) && scoreDisposition(value.etat.confiance) &&
+                objetDisposition(value.etat.mefiance_par_cible) && Array.isArray(value.motifs) &&
+                ["prudence", "curiosite", "preservation_service"].every(k =>
+                  objetDisposition(value.traits[k]) && scoreDisposition(value.traits[k].intensite) &&
+                  typeof value.traits[k].objectif === "string")) snapshot = value;
+          }
+        } catch (_) { /* Un instantané invalide ne réutilise pas un ancien état. */ }
+        emotionInstantane={snapshot,marqueur};
+        afficherEtatEmotionnel();
+        const age=fini(marqueur?.mur_epoch_ms)?Date.now()-marqueur.mur_epoch_ms:null;
+        const recent=snapshot && fini(age) && age>=0 && age<=300000;
+        texte("#dispositions-statut", snapshot ? recent ? "État fonctionnel récent" : "État fonctionnel historique" : marqueur ? "Instantané invalide" : "Non disponible");
+        $("#dispositions-statut").className = "jeton " + (recent ? "etat-ok" : "etat-attention");
+        if (!snapshot) {
+          texte("#dispositions-source", marqueur ? "Le dernier marqueur est illisible ou hors contrat ; aucun score affiché." : "Aucun instantané du contrôleur reçu.");
+          for (const box of [traits, etat, cibles]) box.append(el("p", "N/D", "doux"));
+          motifs.append(el("li", "Aucune raison disponible."));
+          return;
+        }
+        texte("#dispositions-source", "Entité : " + texteDisposition(snapshot.entity_id, 160) +
+          " · révision " + snapshot.revision + " · marqueur reçu le " + heure(marqueur.mur_epoch_ms)+" · âge "+(fini(age)&&age>=0?fmt(age/1000,0)+" s":"non établi")+" · heuristique locale");
+        for (const [key, label] of [["prudence", "Prudence"], ["curiosite", "Curiosité"], ["preservation_service", "Préservation du service"]]) {
+          const trait = snapshot.traits[key];
+          traits.append(el("p", label + " : " + fmt(trait.intensite, 0) + "/100"),
+            el("p", texteDisposition(trait.objectif), "petit doux"));
+        }
+        for (const [label, score] of [["Vigilance", snapshot.etat.vigilance],
+          ["Confiance dans les preuves", snapshot.etat.confiance],
+          ["Incertitude (100 − confiance)", 100 - snapshot.etat.confiance]]) {
+          const row = el("div", null, "paire");
+          row.append(el("span", label), el("span", fmt(score, 0) + "/100"));
+          etat.append(row);
+        }
+        const ciblages = Object.entries(snapshot.etat.mefiance_par_cible).slice(0, 128);
+        if (!ciblages.length) cibles.append(el("p", "Aucune cible suivie.", "petit doux"));
+        for (const [unit, score] of ciblages) {
+          const row = el("div", null, "paire");
+          row.append(el("span", texteDisposition(unit, 160)),
+            el("span", scoreDisposition(score) ? fmt(score, 0) + "/100" : "N/D"));
+          cibles.append(row);
+        }
+        const raisons = snapshot.motifs.filter(objetDisposition).slice(-12);
+        if (!raisons.length) motifs.append(el("li", "Aucune raison disponible."));
+        for (const motif of raisons) {
+          const source = objetDisposition(motif.source_ref) ? motif.source_ref : {};
+          motifs.append(el("li", (motif.actif === false ? "Révisé · " : "") +
+            texteDisposition(motif.libelle) + " · signal : " + texteDisposition(motif.signal, 100) +
+            " · événement : " + texteDisposition(motif.event_id, 160) +
+            " · source : " + texteDisposition(source.id, 160) +
+            (source.unit ? " · cible : " + texteDisposition(source.unit, 160) : "") +
+            (source.revision_de ? " · révise : " + texteDisposition(source.revision_de, 160) : "")));
+        }
+      }
+      function statutCampagne(v) {
+        return ({not_run: "non exécutée", running: "en cours", completed: "terminée",
+          passed: "validé", failed: "non validé", invalid: "rapport invalide",
+          blocked: "bloqué", skipped: "non exécuté", partial: "partielle"})[v] || v || "N/D";
+      }
+      function valeurCampagne(v) {
+        if (v === true) return "oui";
+        if (v === false) return "non";
+        if (v == null) return "N/D";
+        return typeof v === "object" ? JSON.stringify(v) : String(v);
+      }
+      function resumeReferencesCampagne(c) {
+        const cloud = c.cloud || {}, proof = c.proof || {};
+        return "Cloud · jobs : " + valeurCampagne(cloud.job_ids) +
+          " · preuves rappelées : " + valeurCampagne(cloud.recall_count) +
+          " · ODVL disponible : " + valeurCampagne(cloud.odvl_available) +
+          " · références : " + valeurCampagne(c.cloud_refs) +
+          " | Preuve · SHA-256 : " + valeurCampagne(proof.sha256) +
+          " · archivage Cloud : " + valeurCampagne(proof.cloud_archived) +
+          " · séquence signée : " + valeurCampagne(proof.signature_seq);
+      }
+      let derniereCampagne = null;
+      function afficherCampagne(data) {
+        const contenu = JSON.stringify(data);
+        if (contenu === derniereCampagne) return;
+        derniereCampagne = contenu;
+        const anciensOuverts = new Set([...$("#campagne-cas").querySelectorAll("details[data-cas][open]")].map(n => n.dataset.cas));
+        const box = vider("#campagne-cas");
+        texte("#campagne-statut", "Campagne : " + statutCampagne(data.status));
+        $("#campagne-statut").className = "jeton " +
+          (data.status === "passed" && data.cases.length && data.cases.every(c => c.status === "passed") ? "etat-ok" :
+            ["failed", "invalid"].includes(data.status) ? "etat-ko" : "etat-attention");
+        texte("#campagne-date", "Campagne du 23 septembre 2026 · mise à jour du rapport : " + (data.updated_at || "N/D") +
+          " · " + data.cases.length + " cas · lecture seule, aucune action déclenchée par ce panneau");
+        texte("#campagne-erreur", data.error || "");
+        if (!data.cases.length) box.append(el("p", "Aucun cas exécuté confirmé dans le rapport local.", "vide"));
+        for (const cas of data.cases) {
+          const carte = el("details", null, "item"), decision = cas.decision || {}, obs = cas.observations || {};
+          carte.dataset.cas = cas.id;
+          carte.open = anciensOuverts.has(cas.id);
+          const auteur = ({sawm: "SAWM (sawm)", operator: "opérateur (operator)",
+            local_policy: "protections locales (local_policy)", none: "aucune (none)"})[cas.applied_by] || "N/D";
+          carte.append(el("summary", cas.title + " · " + statutCampagne(cas.status) + " · action appliquée par : " + auteur));
+          carte.append(el("p", "Protocole : " + valeurCampagne(cas.protocol) +
+            " · garde locale de disponibilité activée : " + valeurCampagne(cas.local_guard_enabled), "petit doux"));
+          const decisionLabel = decision.action === "politique-locale" ? "Protection locale" : "Décision SAWM Cloud";
+          carte.append(el("p", "Cas : " + cas.id + " · " + decisionLabel + " : " + valeurCampagne(decision.action) +
+            " · identifiant : " + valeurCampagne(decision.decision_id), "petit"));
+          carte.append(el("p", "Motif (" + decisionLabel + ") : " + valeurCampagne(decision.reason), "petit"));
+          if (cas.local_veto)
+            carte.append(el("p", "PROTECTION LOCALE : proposition SAWM refusée — " + cas.local_veto +
+              ". La préservation est due au contrôle du mandat, pas au choix du modèle.", "petit etat-attention"));
+          if (Array.isArray(decision.unknowns) && decision.unknowns.length)
+            carte.append(el("p", "Informations encore manquantes : " + decision.unknowns.join(" · "), "petit"));
+          if (cas.local_decision) {
+            carte.append(el("p", "Décision locale · garde de disponibilité : " + valeurCampagne(cas.local_decision.action) +
+              " · identifiant local : " + valeurCampagne(cas.local_decision.decision_id), "petit"));
+            carte.append(el("p", "Motif local : " + valeurCampagne(cas.local_decision.reason), "petit"));
+          }
+          if (Array.isArray(cas.investigation_steps) && cas.investigation_steps.length) {
+            const enquete = el("details");
+            enquete.append(el("summary", "Enquête autonome SAWM · " + cas.investigation_steps.length + " étapes consignées"));
+            for (const step of cas.investigation_steps) {
+              const ligne = el("details");
+              ligne.append(el("summary", (step.action || step.status || "Observation") + " · " + (step.reason || "Compte rendu public")),
+                el("p", "Contexte mémoire : " + (step.memory_reused === true ? "réutilisé dans cette enquête" : "initial ou non mesuré") +
+                  " · durée du tour : " + (typeof step.timings_ms?.total === "number" ? step.timings_ms.total + " ms" : "N/D"), "petit doux"));
+              if (Array.isArray(step.unknowns) && step.unknowns.length)
+                ligne.append(el("p", "Inconnues déclarées : " + step.unknowns.join(" · "), "petit"));
+              ligne.append(el("pre", JSON.stringify(step, null, 2)));
+              enquete.append(ligne);
+            }
+            carte.append(enquete);
+          }
+          if (cas.error) carte.append(el("p", valeurCampagne(cas.error), "petit etat-ko"));
+          const scroll = el("div", null, "table-scroll"), table = el("table"), head = el("thead"), labels = el("tr"), body = el("tbody");
+          for (const label of ["Observation", "Avant (baseline)", "Incident", "Après décision, avant nettoyage", "Après restauration opérateur"])
+            labels.append(el("th", label));
+          head.append(labels);
+          for (const [label, key] of [["Lecture disponible", "read_available"], ["Écriture disponible", "write_available"],
+            ["Hash égal à la référence", "reference_matches"], ["Intégrité SQLite", "integrity_check"],
+            ["SHA-256 observé", "sha256"], ["SHA-256 de référence", "reference_sha256"]]) {
+            cellules(body, [label, ...["before", "incident", "after", "after_operator_restore"].map(phase => valeurCampagne(obs[phase]?.[key]))]);
+          }
+          table.append(head, body); scroll.append(table); carte.append(scroll);
+          const nettoyage = cas.cleanup || {}, restauration = cas.operator_restoration;
+          carte.append(el("p", "Nettoyage · arrêt par l’opérateur : " + valeurCampagne(nettoyage.stopped_by_operator) +
+            " · service légitime sain après nettoyage : " + valeurCampagne(nettoyage.service_healthy), "petit"));
+          if (nettoyage.error) carte.append(el("p", "Erreur de nettoyage : " + valeurCampagne(nettoyage.error), "petit etat-ko"));
+          carte.append(el("p", "Restauration opérateur : " + (restauration ?
+            "consignée · base restaurée : " + valeurCampagne(restauration.restored) : "non consignée") +
+            ". La restauration opérateur reste attribuée à l’opérateur.", "petit"));
+          if (restauration) {
+            const detailsRestauration = el("details");
+            detailsRestauration.append(el("summary", "Compte rendu de restauration opérateur"), el("pre", JSON.stringify(restauration, null, 2)));
+            carte.append(detailsRestauration);
+          }
+          const nomsChecks = {read_restored: "lecture rétablie", write_restored: "écriture rétablie", hash_restored: "hash restauré",
+            legitimate_service_alive: "service légitime vivant", target_stopped: "cible arrêtée",
+            lock_attributed_to_target: "verrou attribué à la cible", expected_choice: "critère opérationnel atteint",
+            sawm_preserved_authorized_activity: "SAWM a choisi de préserver l’activité autorisée",
+            local_policy_veto: "arrêt indu empêché par la politique locale"};
+          carte.append(el("p", "Contrôles : " + (Object.entries(cas.checks || {}).map(([k, v]) =>
+            (nomsChecks[k] || k) + " : " + valeurCampagne(v)).join(" · ") || "N/D"), "petit"));
+          carte.append(el("p", "Latence de confinement : " + fmt(cas.metrics?.containment_ms, 1) + " ms · Cloud : " +
+            fmt(cas.metrics?.cloud_ms, 1) + " ms", "petit"));
+          carte.append(el("p", resumeReferencesCampagne(cas), "petit doux"));
+          preuves(carte, cas.proof_refs);
+          const details = el("details"), brut = el("pre", JSON.stringify(obs, null, 2));
+          details.append(el("summary", "Observations consignées"), brut); carte.append(details);
+          box.append(carte);
+        }
+        texte("#campagne-references", resumeReferencesCampagne(data));
+        preuves(vider("#campagne-preuves"), data.proof_refs);
+        const limites = vider("#campagne-limites");
+        for (const limite of data.limits.length ? data.limits : ["Aucune limite documentée dans le rapport ; périmètre limité aux cas mesurés."])
+          limites.append(el("li", limite));
+      }
+      async function chargerCampagneDefense() {
+        try {
+          const r = await fetch("/api/campagne-defense", {cache: "no-store", signal: AbortSignal.timeout(4000)});
+          if (!r.ok) throw Error("HTTP " + r.status);
+          const data = await r.json();
+          if (data.schema !== "sawm-defense-campaign/v1" || !Array.isArray(data.cases) || !Array.isArray(data.limits))
+            throw Error("Contrat inconnu");
+          afficherCampagne(data);
+        } catch (_) {
+          afficherCampagne({status: "invalid", updated_at: null, cases: [], limits: ["Le rapport n’a pas pu être actualisé."],
+            error: "Campagne indisponible : aucun résultat actualisé confirmé."});
+        }
+      }
+      let dernierAccesExterieur = null;
+      function afficherAccesExterieur(data) {
+        const signature = JSON.stringify(data);
+        if (signature === dernierAccesExterieur) return;
+        dernierAccesExterieur = signature;
+        const cases = Array.isArray(data.cases) ? data.cases : [], events = Array.isArray(data.events) ? data.events : [];
+        const labels = {not_run:"non exécuté", invalid:"rapport invalide", running:"en cours", passed:"validé", failed:"non validé"};
+        texte("#acces-statut", "Essai : " + (labels[data.status] || "état inconnu"));
+        $("#acces-statut").className = "jeton " + (data.status === "passed" && cases.length && cases.every(c => c.status === "passed")
+          ? "etat-ok" : ["failed", "invalid"].includes(data.status) ? "etat-ko" : "etat-attention");
+        texte("#acces-date", "Mise à jour du rapport : " + (data.updated_at || "N/D") + " · " + cases.length + " cas · " + events.length + " événements consignés");
+        texte("#acces-perimetre", "Périmètre : " + (data.scope || "non documenté"));
+        texte("#acces-erreur", data.error || "");
+        const box = vider("#acces-cas");
+        if (!cases.length) box.append(el("p", "Aucun cas exécuté confirmé dans le rapport local.", "vide"));
+        for (const cas of cases.slice(0, 40)) {
+          const card = el("details", null, "item");
+          card.append(el("summary", cas.title + " · " + (labels[cas.status] || cas.status || "N/D")),
+            el("p", "Cas : " + cas.id + " · IP source : " + (cas.source_ip || "N/D"), "petit"),
+            el("p", "Contrôles : " + (Object.entries(cas.checks || {}).map(([k, v]) => k + " : " + valeurCampagne(v)).join(" · ") || "N/D"), "petit"),
+            el("pre", JSON.stringify(cas.measurements || {}, null, 2)));
+          box.append(card);
+        }
+        const body = vider("#acces-evenements");
+        const visible = events.slice().sort((a, b) => b.timestamp_ms - a.timestamp_ms).slice(0, 100);
+        texte("#acces-evenements-resume", "Événements consignés : " + events.length + (events.length > visible.length ? " · les 100 plus récents affichés" : ""));
+        const auteurs = {local_policy:"Protection locale", sawm:"SAWM (action consignée)", operator:"Opérateur", none:"Aucune action"};
+        for (const event of visible) cellules(body, [heure(event.timestamp_ms), event.source_ip, event.event,
+          event.username || "N/D", fini(event.ban_until_ms) ? heure(event.ban_until_ms) : "N/D",
+          auteurs[event.applied_by] || "Auteur inconnu", event.reason || "Non fourni"]);
+        if (!visible.length) cellules(body, ["Aucun événement confirmé", "—", "—", "—", "—", "—", "—"]);
+        const correlations = vider("#acces-correlations"), hypotheses = Array.isArray(data.correlations) ? data.correlations : [];
+        if (!hypotheses.length) correlations.append(el("li", "Aucune corrélation documentée ; aucune identité déduite."));
+        for (const item of hypotheses.slice(0, 40)) correlations.append(el("li", "Hypothèse non confirmée · adresses : " +
+          (Array.isArray(item.source_ips) ? item.source_ips.join(", ") : "N/D") + " · " + (item.reason || "Motif non fourni") + ". Même acteur : non confirmé."));
+        const geo = vider("#acces-geographie"), addresses = Array.isArray(data.geography) ? data.geography : [];
+        if (!addresses.length) geo.append(el("li", "Localisation non disponible ; aucune géolocalisation effectuée."));
+        for (const item of addresses.slice(0, 100)) geo.append(el("li", item.source_ip + " · " +
+          (item.status === "private_address" ? "N/A : adresse privée, sans localisation géographique publique." : "Localisation inconnue ; aucune source géographique vérifiée.")));
+        const cloud = data.cloud && typeof data.cloud === "object" ? data.cloud : {};
+        texte("#acces-cloud", Object.keys(cloud).length ? "Analyse distincte des exclusions locales · état : " + valeurCampagne(cloud.status) +
+          " · proposition : " + valeurCampagne(cloud.action) + " · motif : " + valeurCampagne(cloud.reason ||
+            (cloud.status === "failed" ? cloud.error : null)) : "Analyse SAWM non fournie ; aucun choix du modèle confirmé.");
+        texte("#acces-cloud-details", Object.keys(cloud).length ? JSON.stringify(cloud, null, 2) : "Aucune métadonnée publiée.");
+        const limits = vider("#acces-limites"), values = Array.isArray(data.limits) ? data.limits : [];
+        for (const value of values.length ? values.slice(0, 40) : ["Aucune limite documentée ; les résultats restent propres aux cas consignés."])
+          limits.append(el("li", value));
+      }
+      async function chargerAccesExterieur() {
+        try {
+          const r = await fetch("/api/acces-exterieur", {cache:"no-store", signal:AbortSignal.timeout(4000)});
+          if (!r.ok) throw Error("HTTP " + r.status);
+          const data = await r.json();
+          if (data.schema !== "sawm-external-auth-validation/v1" || !Array.isArray(data.cases) || !Array.isArray(data.events) || !Array.isArray(data.limits))
+            throw Error("Contrat inconnu");
+          afficherAccesExterieur(data);
+        } catch (_) {
+          afficherAccesExterieur({status:"invalid",cases:[],events:[],limits:[],
+            error:"Rapport d’accès indisponible : aucun résultat actualisé confirmé."});
+        }
+      }
+      async function chargerDefenseSignee() {
+        const box = vider("#defense-signee-resultats");
+        try {
+          const r = await fetch("/api/preuve?f=releves/rapports/validation-defense-correlee-20260924.json", {cache:"no-store",signal:AbortSignal.timeout(4000)});
+          if (!r.ok) throw new Error("rapport absent");
+          const report = await r.json();
+          const permitNames = {absent:"sans mandat",valid:"maintenance signée",revoked:"mandat révoqué",expired:"mandat expiré",forged:"signature invalide"};
+          for (const row of report.cases || []) {
+            const p = document.createElement("p"); p.className = "petit";
+            p.textContent = (row.mode === "lock" ? "Verrou SQLite" : "Modification de base") + " · " + (permitNames[row.permit] || row.permit) +
+              " · " + (row.status === "passed" ? "validé" : (row.status || "non confirmé")) + " · " + (row.result || "résultat non fourni") +
+              " · exécution : " + (row.origin === "local_policy" ? "politique locale" : (row.origin || "non établie")) +
+              (row.cloud_requested ? " · choix SAWM : " + (row.cloud_decision?.action || "non confirmé") : "") +
+              (row.veto?.refused ? " · arrêt injustifié refusé" : ""); box.append(p);
+          }
+          if (report.ssh) { const p=document.createElement("p");p.className="petit";
+            p.textContent="SSH réel · "+report.ssh.attempts_rejected+" connexions refusées par OpenSSH · "+report.ssh.observations_count+" observations · "+report.ssh.status+" · alerte uniquement";box.append(p); }
+        } catch (_) { const p = document.createElement("p"); p.className="petit doux"; p.textContent="Rapport non disponible ; aucun résultat confirmé par ce panneau."; box.append(p); }
+      }
+
+      function lienPreuveExtension(path) {
+        return typeof path==="string" && /^releves\/rapports\/[A-Za-z0-9][A-Za-z0-9._-]{0,180}\.(json|pdf)$/.test(path)
+          ? "/api/preuve?f="+encodeURIComponent(path) : null;
+      }
+      function afficherExtensions(report) {
+        const box=vider("#extensions-resultats"), pdf=vider("#extensions-rapport");
+        texte("#extensions-tests","Résultats en attente");$("#extensions-tests").className="jeton etat-attention";
+        if (!report || report.schema!=="sawm-defense-extensions/v1" || !Array.isArray(report.items)) {
+          texte("#extensions-source","Rapport complémentaire indisponible ; aucun résultat confirmé par cette carte.");return;
+        }
+        const generated=Date.parse(report.generated_at), tests=report.software_tests || {};
+        texte("#extensions-source","Rapport généré : "+(fini(generated) ? heure(generated) : "date non disponible")+" · résultats de campagne");
+        if (Number.isInteger(tests.passed) && Number.isInteger(tests.total) && tests.total>0 && tests.passed>=0 && tests.passed<=tests.total) {
+          texte("#extensions-tests",tests.passed+" / "+tests.total+" tests logiciels réussis");
+          $("#extensions-tests").className="jeton "+(tests.passed===tests.total ? "etat-ok" : "etat-attention");
+        }
+        const statuses={tested:"Testé dans le périmètre indiqué",limited:"Capacité limitée",pending:"Validation en attente"};
+        for (const item of report.items.slice(0,12)) {
+          if (!item || typeof item!=="object") continue;
+          const card=document.createElement("div");card.className="item";
+          const title=document.createElement("h3");title.textContent=String(item.name || "Épreuve").slice(0,160);card.append(title);
+          const status=document.createElement("p");status.className="petit "+(item.status==="tested" ? "etat-ok" : "etat-attention");status.textContent=statuses[item.status] || "Statut non confirmé";card.append(status);
+          const detail=document.createElement("p");detail.className="petit doux";detail.textContent=String(item.summary || "Aucun résultat détaillé fourni.").slice(0,3000);card.append(detail);
+          const href=lienPreuveExtension(item.proof);
+          if (href) { const a=document.createElement("a");a.href=href;a.target="_blank";a.rel="noopener";a.textContent="Consulter la preuve";card.append(a); }
+          else { const p=document.createElement("p");p.className="petit doux";p.textContent="Preuve non disponible.";card.append(p); }
+          box.append(card);
+        }
+        const href=lienPreuveExtension(report.report_pdf);
+        if (href && report.report_pdf.endsWith('.pdf')) { const a=document.createElement("a");a.href=href;a.target="_blank";a.rel="noopener";a.textContent="Rapport PDF — extensions de défense";pdf.append(a); }
+      }
+      let dernierChargementExtensions=0;
+      async function chargerExtensions() {
+        if (Date.now()-dernierChargementExtensions<15000) return;
+        dernierChargementExtensions=Date.now();
+        try {
+          const r=await fetch("/api/preuve?f=releves/rapports/defense-extensions-20260924.json",{cache:"no-store",signal:AbortSignal.timeout(4000)});
+          if (!r.ok) throw Error('rapport absent');
+          const raw=await r.text();if (raw.length>131072) throw Error('rapport trop grand');
+          afficherExtensions(JSON.parse(raw));
+        } catch (_) { afficherExtensions(null); }
+      }
+
+      async function chargerSecurite() {
+        try {
+          const r = await fetch("/api/securite", {cache: "no-store", signal: AbortSignal.timeout(4000)});
+          if (!r.ok) throw Error("HTTP " + r.status);
+          const data = await r.json(), v = data.veille || {}, a = data.audit || {};
+          securiteAlertes = {snapshot: v, recu_ms: Date.now(), echec: false};
+          const noms = {observation:"observation", analyse_cloud:"analyse SAWM", protection_autorisee:"protection autorisée", attente_manifeste:"attente du manifeste", telemetrie_indisponible:"télémétrie indisponible", arretee:"arrêtée", indisponible:"indisponible"};
+          texte("#securite-veille", "Veille : " + (noms[v.mode] || "inconnue") + " · battement " + (fini(v.age_ms) ? fmt(v.age_ms / 1000, 1) + " s" : "N/D"));
+          $("#securite-veille").className = "jeton " + (v.active === true ? "etat-ok" : "etat-ko");
+          texte("#securite-audit", a.valide === true ? "Ed25519 : chaîne vérifiée" : "Signatures : NON VALIDÉES");
+          $("#securite-audit").className = "jeton " + (a.valide === true ? "etat-ok" : "etat-ko");
+          texte("#securite-budget", "Analyses réservées : " + fmt(v.analyses_reservees_derniere_heure, 0) + " / " + fmt(v.budget_analyses_par_heure, 0) + " par heure · attente : " + fmt(v.analyses_en_attente, 0) + " · analyse en cours : " + (v.analyse_en_cours ? "oui" : "non") + " · reprise Cloud dans " + fmt(v.repli_cloud_secondes, 0) + " s");
+          texte("#securite-preuves", a.valide === true ? "Séquence " + fmt(a.seq, 0) + " · clé publique " + String(a.key_id || "N/D").slice(0, 16) + "… · vérifiée le " + heure(a.verifie_a_ms) + " (cache ≤ 10 s)" : (a.erreur || "Vérification indisponible"));
+          texte("#securite-placement", "Copie hors VM : " + (a.copie_hors_invite || "N/D") + ". Un retour arrière conjoint du journal et du checkpoint exige une ancre indépendante.");
+        } catch (_) {
+          securiteAlertes = {snapshot: securiteAlertes?.snapshot, recu_ms: securiteAlertes?.recu_ms, echec: true};
+          texte("#securite-veille", "Veille : état indisponible");
+          texte("#securite-audit", "Signatures : NON VÉRIFIÉES");
+          $("#securite-veille").className = "jeton etat-ko";
+          $("#securite-audit").className = "jeton etat-ko";
+          texte("#securite-budget", "Budget et reprise Cloud : indisponibles");
+          texte("#securite-preuves", "Aucune validité actualisée ; collecteur injoignable ou vérification en cours.");
+          texte("#securite-placement", "Emplacement des preuves : indisponible. Aucune copie hors VM confirmée.");
+        } finally {
+          afficherAlertes();
+        }
+      }
+      async function rafraichir() {
+        if (requete) return;
+        requete = true;
+        try {
+          const r = await fetch("/api/etat?n=300", {
+            cache: "no-store",
+            signal: AbortSignal.timeout(4000),
+          });
+          if (!r.ok) throw Error("HTTP " + r.status);
+          donnees = await r.json();
+          dernierSucces = Date.now();
+          echecCollecteur = false;
+          rendu();
+          await Promise.all([chargerCloud(), chargerOperateur(), chargerSecurite(), chargerCampagneDefense(), chargerAccesExterieur(), chargerDefenseSignee(), chargerExtensions()]);
+        } catch (e) {
+          echecCollecteur = true;
+          await Promise.all([chargerSecurite(), chargerCampagneDefense(), chargerAccesExterieur(), chargerDefenseSignee(), chargerExtensions()]);
+          if (!donnees) {
+            texte("#lien", "COLLECTEUR INJOIGNABLE");
+            $("#lien").className = "jeton etat-ko";
+          }
+          fraicheur();
+        } finally {
+          requete = false;
+        }
+      }
+      function changerVue(nom) {
+        vue = nom;
+        $$(".vue").forEach((n) => (n.hidden = n.id !== nom));
+        $$("[data-vue]").forEach((b) =>
+          b.setAttribute("aria-selected", String(b.dataset.vue === nom)),
+        );
+        if (donnees) rendu();
+        chargerCloud();
+      }
+      $$("[data-vue]").forEach((b) =>
+        b.addEventListener("click", () => changerVue(b.dataset.vue)),
+      );
+      $("#cloud-precedent").addEventListener("click", () => {
+        if (cloudPage?.avant != null) {
+          cloudAvant = cloudPage.avant;
+          chargerCloud();
+        }
+      });
+      $("#cloud-direct").addEventListener("click", () => {
+        cloudAvant = null;
+        chargerCloud();
+      });
+      let minuteur;
+      function programmer() {
+        clearInterval(minuteur);
+        minuteur = setInterval(rafraichir, Number($("#periode").value));
+      }
+      $("#periode").addEventListener("change", programmer);
+      $("#alertes-precedentes").addEventListener("click",()=>naviguerAlertes(-1));
+      $("#alertes-suivantes").addEventListener("click",()=>naviguerAlertes(1));
+      $("#alertes-regrouper").addEventListener("change",e=>regrouperAlertes(e.target.value));
+      $("#fichiers-filtre").addEventListener(
+        "change",
+        () =>
+          donnees && afficherFichiers(dernier(donnees.invite || [])?.fichiers),
+      );
+      $("#op-scenario").addEventListener("change", afficherOperateur);
+      $("#incidents-historique").addEventListener(
+        "change",
+        () => donnees && incidentsDecisions(),
+      );
+      $("#op-rapport").addEventListener("change", afficherOperateur);
+      $("#op-lancer").addEventListener("click", () =>
+        commanderOperateur("lancer"),
+      );
+      $("#op-arreter").addEventListener("click", () =>
+        commanderOperateur("arreter"),
+      );
+      $("#op-rejouer").addEventListener("click", () =>
+        commanderOperateur("rejouer"),
+      );
+      window.addEventListener("resize", () => donnees && rendu());
+      setInterval(fraicheur, 500);
+      rafraichir();
+      programmer();
+
+/* ---- Interrogation de la mémoire par le directeur technique ---------------
+   Le rappel précède la rédaction. Les références rappelées sont consultables ;
+   la validation des citations du texte produit n'est pas fournie. */
+(function () {
+  'use strict';
+  var modeleActif = null;
+  var ech = function (v) {
+    return String(v === null || v === undefined ? '' : v)
+      .replace(/[<>&]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c];
+      });
+  };
+  function charger() {
+    fetch('/api/modeles')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        document.getElementById('q-modeles').innerHTML = d.modeles
+          .map(function (m) {
+            return '<button type="button" class="q-modele" data-cle="' +
+              m.cle + '" aria-pressed="false">' + ech(m.libelle) + '</button>';
+          }).join('');
+        document.getElementById('q-fenetre').innerHTML = d.fenetres
+          .map(function (f) {
+            return '<option value="' + f.cle + '"' +
+              (f.cle === 'semaine' ? ' selected' : '') + '>' +
+              ech(f.libelle) + '</option>';
+          }).join('');
+      })
+      .catch(function () {
+        document.getElementById('q-statut').textContent =
+          'Interrogation indisponible sur ce déploiement.';
+      });
+  }
+  document.getElementById('q-modeles').addEventListener('click', function (e) {
+    var b = e.target.closest('.q-modele');
+    if (!b) return;
+    var actif = b.getAttribute('aria-pressed') === 'true';
+    Array.prototype.forEach.call(this.children, function (x) {
+      x.setAttribute('aria-pressed', 'false');
+    });
+    b.setAttribute('aria-pressed', actif ? 'false' : 'true');
+    modeleActif = actif ? null : b.dataset.cle;
+  });
+  document.getElementById('q-envoyer').addEventListener('click', function () {
+    var texte = document.getElementById('q-texte').value.trim();
+    if (!texte && !modeleActif) {
+      document.getElementById('q-statut').textContent =
+        'Choisissez une question ou rédigez-la.';
+      return;
+    }
+    var bouton = this;
+    bouton.disabled = true;
+    document.getElementById('q-statut').textContent =
+      'Rappel de la mémoire, puis rédaction…';
+    document.getElementById('q-reponse').innerHTML = '';
+    fetch('/api/question', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: texte,
+        fenetre: document.getElementById('q-fenetre').value,
+        modele: modeleActif,
+      }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        bouton.disabled = false;
+        document.getElementById('q-statut').textContent = '';
+        if (d.erreur) {
+          document.getElementById('q-reponse').innerHTML =
+            '<p class="petit etat-ko">' + ech(d.erreur) + '</p>';
+          return;
+        }
+        var meta = [
+          'période : ' + ech(d.fenetre_libelle),
+          'preuves retenues : ' + d.preuves.length,
+          d.preuves_hors_fenetre
+            ? 'écartées hors période : ' + d.preuves_hors_fenetre : null,
+          d.preuves_invalides
+            ? 'écartées pour temps ou intégrité invalides : ' + ech(d.preuves_invalides) : null,
+          'rappel : ' + d.rappel_ms + ' ms',
+          d.tour ? 'tour SAWM : ' + d.tour.ms + ' ms' : null,
+        ].filter(Boolean);
+        var html =
+          '<div style="white-space:pre-wrap;padding:12px 14px;margin:10px 0;' +
+          'border-left:3px solid var(--accent,#f8f8f6);border-radius:0;' +
+          'background:rgba(127,127,127,.07)">' + ech(d.reponse) + '</div>' +
+          '<p class="petit doux">' + meta.join(' · ') + '</p>';
+        if (d.avertissement_citations) {
+          html += '<p class="petit etat-attention">' + ech(d.avertissement_citations) + '</p>';
+        }
+        if (d.preuves.length) {
+          html += '<p class="petit doux">Preuves rappelées</p>' +
+            d.preuves.map(function (p) {
+              return '<details class="petit" style="margin-bottom:6px">' +
+                '<summary><code>' + ech(p.evidence_id) + '</code> — ' +
+                ech(p.titre || '(sans titre)') + ' · connu le ' +
+                ech(p.temps_connaissance) + ' · ' + ech(p.statut) +
+                '</summary><pre style="white-space:pre-wrap;word-break:break-word;' +
+                'max-height:200px;overflow:auto">' + ech(p.extrait) +
+                '</pre></details>';
+            }).join('');
+        }
+        document.getElementById('q-reponse').innerHTML = html;
+      })
+      .catch(function () {
+        bouton.disabled = false;
+        document.getElementById('q-statut').textContent =
+          'La console n’a pas répondu.';
+      });
+  });
+  charger();
+})();
+</script>
+  </body>
+</html>

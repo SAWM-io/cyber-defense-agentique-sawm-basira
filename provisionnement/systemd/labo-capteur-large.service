@@ -1,0 +1,11 @@
+[Unit]
+Description=Capteur eBPF large (reseau, fichiers, identite, noyau, injection)
+[Service]
+Slice=sawm-defense.slice
+ExecStart=/usr/bin/bpftrace /opt/sawm-labo/capteur_large.bt
+StandardOutput=append:/var/log/capteur_large.jsonl
+StandardError=append:/var/log/capteur_large.err
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=multi-user.target

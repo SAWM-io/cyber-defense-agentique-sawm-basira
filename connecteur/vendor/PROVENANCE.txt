@@ -1,0 +1,10 @@
+basira_client.py
+  source    : https://basira.sawm.io/static/sdk/basira_client.py
+  telecharge: 2026-09-22
+  http      : 200, 79049 octets
+  sha256    : 49fff5f136e8da7a123f929de55542570dcc6fa8ad78ba317401ad50d519b397
+  identique a frontend/static/sdk/basira_client.py du depot : oui (verifie)
+
+Ce fichier est le SDK PUBLIC, celui qu'un client telecharge. Il est fige ici
+pour que le laboratoire soit reproductible : un rapport qui ne dit pas quelle
+version du client il a utilisee n'est pas verifiable.

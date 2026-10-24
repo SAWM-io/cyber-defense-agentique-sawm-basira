@@ -1,0 +1,9 @@
+[Unit]
+Description=Copie locale de reference bornee
+[Service]
+Slice=sawm-legitime.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/charges_test/transfert.py --source-id reference-volume --run-id volume-20260922T134145 --bytes 5368709120 --duration 120 --rate-bps 104857600
+MemoryMax=128M
+CPUQuota=90%
+RuntimeMaxSec=125
+TimeoutStopSec=3

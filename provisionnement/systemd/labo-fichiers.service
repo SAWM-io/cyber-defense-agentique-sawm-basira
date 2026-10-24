@@ -1,0 +1,10 @@
+[Unit]
+Description=Mesure locale bornee
+[Service]
+Slice=sawm-charge.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/charges_test/fichiers.py --source-id ordinaire --run-id capteurs-20260922T133850 --duration 40
+MemoryMax=128M
+CPUQuota=85%
+RuntimeMaxSec=45
+KillMode=control-group
+TimeoutStopSec=3

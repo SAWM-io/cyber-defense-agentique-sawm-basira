@@ -1,0 +1,9 @@
+[Unit]
+Description=Recepteur du laboratoire — compte les octets reellement recus
+[Service]
+Slice=sawm-charge.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/agent/recepteur.py
+Restart=always
+RestartSec=2
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Battements benins du laboratoire
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+Slice=sawm-charge.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/charges_test/tache.py --source-id repetition --run-id reprise-20260922T134008-0ccb --duration 300 --deadline-epoch 1790077508.1811254 --interval 0.25
+Restart=always
+RestartSec=0.25
+RestartPreventExitStatus=78
+SuccessExitStatus=78
+KillMode=control-group
+RuntimeMaxSec=300
+TimeoutStopSec=3
+MemoryMax=64M
+CPUQuota=20%

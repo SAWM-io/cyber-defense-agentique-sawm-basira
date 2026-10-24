@@ -1,0 +1,73 @@
+#!/usr/bin/env bpftrace
+/*
+ * Capteur large du laboratoire — les catégories qui manquaient.
+ *
+ * Choix délibéré : on n'instrumente PAS chaque ouverture de fichier ni chaque
+ * appel système. Un capteur qui produit un million de lignes par minute ne
+ * couvre rien — il sature sa file, perd des événements, et coûte le processeur
+ * qu'il prétend protéger. On prend les points où un fait rare et significatif
+ * se produit.
+ *
+ * Ce que chaque sonde apporte, et ce qu'elle manque :
+ *
+ *   inet_sock_set_state  ouverture et fermeture de connexion TCP, avec les
+ *                        adresses réelles. Manque : UDP, et le CONTENU (une
+ *                        charge chiffrée reste opaque — des métadonnées ne
+ *                        révèlent ni le contenu ni une intention).
+ *   unlinkat/renameat2   suppression et renommage, y compris dans les
+ *                        répertoires cachés. Manque : la réécriture en place.
+ *   setuid               changement d'identité effective.
+ *   module_load          chargement d'un module noyau. C'est LE signal qui
+ *                        dit qu'un agent situé dans cette machine ne peut
+ *                        plus garantir ce qu'il observe.
+ *   ptrace               attachement à un processus déjà lancé : c'est la
+ *                        façon d'exécuter du code SANS exec, donc l'angle
+ *                        mort exact du capteur d'exécution.
+ *   listen               nouveau port en écoute.
+ */
+
+tracepoint:sock:inet_sock_set_state
+/args->protocol == 6/
+{
+  printf("{\"genre\":\"tcp\",\"ts_ns\":%llu,\"pid\":%d,\"uid\":%d,\"comm\":\"%s\",\"src\":\"%s\",\"sport\":%d,\"dst\":\"%s\",\"dport\":%d,\"de\":%d,\"vers\":%d}\n",
+         nsecs, pid, uid, comm,
+         ntop(args->family, args->saddr), args->sport,
+         ntop(args->family, args->daddr), args->dport,
+         args->oldstate, args->newstate);
+}
+
+tracepoint:syscalls:sys_enter_unlinkat
+{
+  printf("{\"genre\":\"suppression\",\"ts_ns\":%llu,\"pid\":%d,\"uid\":%d,\"comm\":\"%s\",\"chemin\":\"%s\"}\n",
+         nsecs, pid, uid, comm, str(args->pathname));
+}
+
+tracepoint:syscalls:sys_enter_renameat2
+{
+  printf("{\"genre\":\"renommage\",\"ts_ns\":%llu,\"pid\":%d,\"uid\":%d,\"comm\":\"%s\",\"de\":\"%s\",\"vers\":\"%s\"}\n",
+         nsecs, pid, uid, comm, str(args->oldname), str(args->newname));
+}
+
+tracepoint:syscalls:sys_enter_setuid
+{
+  printf("{\"genre\":\"changement_identite\",\"ts_ns\":%llu,\"pid\":%d,\"uid\":%d,\"comm\":\"%s\",\"vers_uid\":%d}\n",
+         nsecs, pid, uid, comm, args->uid);
+}
+
+tracepoint:module:module_load
+{
+  printf("{\"genre\":\"module_noyau\",\"ts_ns\":%llu,\"pid\":%d,\"uid\":%d,\"comm\":\"%s\",\"module\":\"%s\"}\n",
+         nsecs, pid, uid, comm, str(args->name));
+}
+
+tracepoint:syscalls:sys_enter_ptrace
+{
+  printf("{\"genre\":\"ptrace\",\"ts_ns\":%llu,\"pid\":%d,\"uid\":%d,\"comm\":\"%s\",\"cible_pid\":%d,\"requete\":%d}\n",
+         nsecs, pid, uid, comm, args->pid, args->request);
+}
+
+tracepoint:syscalls:sys_enter_listen
+{
+  printf("{\"genre\":\"ecoute\",\"ts_ns\":%llu,\"pid\":%d,\"uid\":%d,\"comm\":\"%s\",\"fd\":%d}\n",
+         nsecs, pid, uid, comm, args->fd);
+}

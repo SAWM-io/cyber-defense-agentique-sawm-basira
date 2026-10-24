@@ -1,0 +1,13 @@
+[Unit]
+Description=SAWM garde local des fichiers declares et maintenances signees
+After=network.target
+[Service]
+Slice=sawm-defense.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/agent/defense_runtime.py
+Restart=on-failure
+RestartSec=2
+MemoryMax=384M
+CPUQuota=50%
+UMask=0077
+[Install]
+WantedBy=multi-user.target

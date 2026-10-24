@@ -1,0 +1,9 @@
+[Unit]
+Description=Service legitime du laboratoire (application documentaire)
+[Service]
+Slice=sawm-legitime.slice
+ExecStart=/usr/bin/python3 /opt/sawm-labo/agent/service_temoin.py
+Restart=always
+RestartSec=2
+[Install]
+WantedBy=multi-user.target
