@@ -655,17 +655,28 @@ def appliquer(demande):
                 recu['defense_profondeur'] = autorisation_defense
             # Entrée durable AVANT mutation : un crash n'autorise jamais sa répétition aveugle.
             _journal({**recu, 'etat': 'en_cours'})
+            action_commencee = False
             try:
                 if manifeste()['_sha256'] != m['_sha256']:
                     raise Refus('manifeste_modifie_avant_action')
-                # Le fsync précédent ne prolonge pas la durée d'une autorisation.
+                # Le fsync peut traverser le début d'une maintenance ou un
+                # changement de processus. Requalifier avant toute mutation.
+                m = verifier_identite_attendue(demande, m)
+                recu['maintenance'] = verifier_maintenance(demande, m)
+                if recu['maintenance']['veto']:
+                    raise Refus('maintenance_signee_preservee',
+                                'mandat actif après écriture durable ; aucune mutation commencée')
+                if manifeste()['_sha256'] != m['_sha256']:
+                    raise Refus('manifeste_modifie_avant_action')
+                # Le fsync et les sondes ne prolongent pas l'autorisation.
                 verifier_defense_profondeur(demande, m)
+                action_commencee = True
                 recu['effet'] = fn(demande.get('cible'), m, decision_id)
                 recu['applique'] = True
                 recu['effet_verifie'] = recu['effet'].get('effet_verifie') is True
                 recu['issue'] = 'appliquee'
             except Exception as e:
-                recu['issue'] = 'partielle_ou_inconnue'
+                recu['issue'] = 'partielle_ou_inconnue' if action_commencee else 'non_appliquee'
                 recu['refus'] = {'motif': getattr(e, 'motif', 'erreur_executeur'),
                                  'detail': getattr(e, 'detail', str(e))}
             recu.update(etat='termine', recu_ms=int(time.time()*1000),

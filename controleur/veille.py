@@ -865,8 +865,11 @@ class Veille:
                 return
             if 'defense_profondeur' in self.m:
                 from controleur.defense_profondeur import evaluate
+                # La vérification historique peut durer plusieurs secondes ;
+                # recueillir le relevé bref après elle, jamais le faire vieillir.
+                audit_initial = self.audit_defense()
                 posture = evaluate(courant, self.poster('/api/etat?n=1'),
-                    audit=self.audit_defense(), cloud_budget=self.limite_cloud)
+                    audit=audit_initial, cloud_budget=self.limite_cloud)
                 inc = {**inc, 'faits': [*inc['faits'], {
                     'posture_defense_profondeur_observee': {
                         'observed_ms': posture['observed_ms'],
@@ -939,8 +942,10 @@ class Veille:
                     d.proposition.justification + ' · Clarification requise; aucune reprise automatique de cet incident.',
                     decision=d, details=faits_choix)
                 return
-            etat = self.poster('/api/etat?n=1')
             dernier = self.lire_manifest()
+            # Vérifier la chaîne avant les sondes à TTL court (fichiers : 1,5 s,
+            # télémétrie : 3/5 s). Un journal long ne rajeunit aucune preuve.
+            audit_precontrole = self.audit_defense(force=True)
             observation_ressources = None
             observation_fichiers = None
             if inc.get('genre') == 'ressources_a_enqueter' and self.appliquer \
@@ -953,11 +958,16 @@ class Veille:
                 observation_fichiers = self.inspecter_autorise('inspecter-base',d.proposition.cible,
                     contexte={'object_path':reference_fichiers.get('object_path') if reference_fichiers else None})
                 self.journal.ecrire('inspection_fichiers_avant_action',incident_id=inc['id'],inspection=observation_fichiers)
+                # Le journal signé peut être long : requalifier après son fsync,
+                # sans changer la date du relevé précédent ni le TTL de 1,5 s.
+                observation_fichiers = self.inspecter_autorise('inspecter-base',d.proposition.cible,
+                    contexte={'object_path':reference_fichiers.get('object_path') if reference_fichiers else None})
+            etat = self.poster('/api/etat?n=1')
             autorise_a_ms = round(time.time()*1000)
             refus = autoriser_action(d, inc, self.m, dernier, etat, self.appliquer,
                                      self.fin-time.monotonic(), observation_ressources=observation_ressources,
                                      observation_fichiers=observation_fichiers,reference_fichiers=reference_fichiers,
-                                     audit_profondeur=self.audit_defense(force=True), budget_cloud=self.limite_cloud)
+                                     audit_profondeur=audit_precontrole, budget_cloud=self.limite_cloud)
             if refus:
                 self.journal.ecrire('aucune_action', incident_id=inc['id'], motif=refus)
                 self.publier('/api/decision', {'id': d.decision_id, 'incident_id': inc['id'],
@@ -986,9 +996,10 @@ class Veille:
                 from controleur.defense_profondeur import refuse
                 from invite.executeur.defense_autorisation import sign_authorization
                 final_audit = self.audit_defense(force=True)
+                final_state = self.poster('/api/etat?n=1')
                 expired = not 0 <= round(time.time()*1000)-autorise_a_ms < 5000
                 veto = 'defense_profondeur_precontrole_expire' if expired else refuse(
-                    dernier, etat, audit=final_audit, cloud_budget=self.limite_cloud)
+                    dernier, final_state, audit=final_audit, cloud_budget=self.limite_cloud)
                 if veto:
                     self.journal.ecrire('aucune_action', incident_id=inc['id'], motif=veto)
                     self.publier_attention(inc, 'a_revoir',

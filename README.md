@@ -74,6 +74,8 @@ Un tableau de bord démarré ne signifie pas qu'un serveur est protégé : il fa
 | [Connexion au Cloud](docs/CLOUD.md) | Espace, entité, principal, scopes, clé, reprises et coûts. |
 | [Exploitation](docs/OPERATIONS.md) | Veille continue, dashboard, budget, panne, audit et reprise. |
 | [Défense en profondeur](docs/DEFENSE-PROFONDEUR.md) | Contrôles continus, profil ISO/CIS, autorisation signée et export des preuves. |
+| [Garde locale signée](docs/GARDE-LOCALE-SIGNEE.md) | Confinement borné hors Cloud, clé locale distincte, maintenance et journal signé. |
+| [Essais VM du 26 octobre](docs/VALIDATION-VM-2026-10-26.md) | Décision SAWM exécutée, protections locales mesurées, incidents corrigés et limites observées. |
 | [Référentiels](docs/REFERENTIELS.md) | ISO 27001, CIS, NIST : versions, contributions techniques et démarche d’audit. |
 | [Modèle de sécurité](docs/SECURITY-MODEL.md) | Droits locaux, maintenance signée, isolation et couverture réelle. |
 | [Validation](docs/VALIDATION.md) | Résultats locaux, tests reproductibles et vérifications avant mise en service. |

@@ -64,7 +64,8 @@ def policy(manifest):
     if 'defense_profondeur' not in manifest:
         return False, set(), None
     value = manifest['defense_profondeur']
-    if not isinstance(value, dict) or set(value) not in ({'profil', 'controles_bloquants'}, {'profil', 'controles_bloquants', 'cles_controleur'}) \
+    if not isinstance(value, dict) or not {'profil', 'controles_bloquants'} <= set(value) \
+            or not set(value) <= {'profil', 'controles_bloquants', 'cles_controleur', 'gardes_locales'} \
             or value.get('profil') != PROFILE:
         return True, BASE_REQUIRED, 'profil_defense_profondeur_invalide'
     required = value['controles_bloquants']
@@ -77,6 +78,11 @@ def policy(manifest):
             not isinstance(k, str) or not re.fullmatch('[a-f0-9]{64}', k) for k in keys) \
             or len(keys) != len(set(keys)):
         return True, BASE_REQUIRED, 'cles_controleur_invalides'
+    try:
+        from invite.executeur.defense_autorisation import local_guard_keys
+        local_guard_keys(value)
+    except (ValueError, TypeError):
+        return True, BASE_REQUIRED, 'gardes_locales_invalides'
     return True, BASE_REQUIRED | set(required), None
 
 
@@ -84,7 +90,7 @@ def _boolean(value):
     return 'satisfait' if value is True else 'ecart' if value is False else 'inconnu'
 
 
-def evaluate(manifest, state, *, audit=None, cloud_budget=None, now_ms=None):
+def evaluate(manifest, state, *, audit=None, cloud_budget=None, now_ms=None, authority_role='controleur'):
     now = round(time.time()*1000) if now_ms is None else now_ms
     enabled, required, invalid = policy(manifest)
     digest = manifest.get('_sha256')
@@ -126,8 +132,12 @@ def evaluate(manifest, state, *, audit=None, cloud_budget=None, now_ms=None):
         'vérificateur Ed25519 local', 'Vérification complète de chaîne ; la présence d’un fichier ne suffit pas.', audit.get('verifie_a_ms'))
     key_ids = set()
     if enabled and invalid is None:
-        key_ids = {hashlib.sha256(bytes.fromhex(k)).hexdigest()
-                   for k in manifest['defense_profondeur'].get('cles_controleur', [])}
+        if authority_role == 'controleur':
+            key_ids = {hashlib.sha256(bytes.fromhex(k)).hexdigest()
+                       for k in manifest['defense_profondeur'].get('cles_controleur', [])}
+        elif authority_role == 'garde_locale':
+            from invite.executeur.defense_autorisation import local_guard_keys
+            key_ids = set(local_guard_keys(manifest['defense_profondeur']))
     add('autorite_controleur', _boolean(isinstance(audit.get('key_id'), str) and audit['key_id'] in key_ids)
         if audit_recent and audit.get('valide') is True else 'inconnu', 'manifeste et clé Ed25519',
         'La clé publique doit être enrôlée hors du modèle avant une intervention.', audit.get('verifie_a_ms'))
@@ -167,13 +177,13 @@ def evaluate(manifest, state, *, audit=None, cloud_budget=None, now_ms=None):
             'required': sorted(required), 'policy_error': invalid}
 
 
-def refuse(manifest, state, *, audit=None, cloud_budget=None, now_ms=None):
+def refuse(manifest, state, *, audit=None, cloud_budget=None, now_ms=None, authority_role='controleur'):
     enabled, required, error = policy(manifest)
     if not enabled:
         return None
     if error:
         return error
-    report = evaluate(manifest, state, audit=audit, cloud_budget=cloud_budget, now_ms=now_ms)
+    report = evaluate(manifest, state, audit=audit, cloud_budget=cloud_budget, now_ms=now_ms, authority_role=authority_role)
     missing = sorted(c['id'] for c in report['checks'] if c['id'] in required and c['status'] != 'satisfait')
     return 'defense_profondeur_preuve_manquante:' + ','.join(missing) if missing else None
 

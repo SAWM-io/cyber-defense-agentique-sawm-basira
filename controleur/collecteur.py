@@ -273,6 +273,117 @@ def lire_campagne_defense(racine: pathlib.Path) -> dict:
                 "error": "Rapport de campagne absent, invalide ou hors limites ; aucun résultat confirmé."}
 
 
+def lire_autonomie_profondeur(racine: pathlib.Path) -> dict:
+    """Latest bounded real-campaign files, never silently replace a failed run with a success.
+
+    Only this filename family is discoverable. No VM, Cloud, mutation or client
+    supplied path. Unknown fields, raw traces and OS identity documents are not
+    forwarded by this public summary. Original evidence remains downloadable.
+    """
+    racine = pathlib.Path(racine)
+    base = {"schema": "sawm-autonomy-depth-dashboard/v1", "status": "not_run",
+            "reports": [], "latest_ms": None, "omitted": 0, "error": None}
+    directory = racine / "releves" / "rapports"
+    try:
+        # Reject symlinked directory components before discovery.
+        preuve_autorisee("releves/rapports/validation-autonomie-profondeur-depth-probe.json", racine)
+        candidates = []
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if re.fullmatch(r"validation-autonomie-profondeur-depth-[a-f0-9]{10}\.json", entry.name):
+                    info = entry.stat(follow_symlinks=False)
+                    candidates.append((info.st_mtime_ns, entry.name))
+                if len(candidates) > 1000:
+                    raise ValueError("too many campaign files")
+        selected = sorted(candidates, reverse=True)[:40]
+    except FileNotFoundError:
+        return base
+    except (OSError, ValueError):
+        return {**base, "status": "invalid", "error": "Rapports non accessibles dans le périmètre autorisé."}
+
+    def pick(value, keys):
+        return {k: value[k] for k in keys if k in value} if isinstance(value, dict) else {}
+
+    def receipt(value):
+        out = pick(value, ("action", "cible", "applique", "effet_verifie", "duree_ms", "decision_id"))
+        if isinstance(value, dict):
+            out["refusal"] = pick(value.get("refus"), ("motif",))
+            out["maintenance"] = pick(value.get("maintenance"), ("checked", "veto"))
+            out["authorization"] = pick(value.get("defense_profondeur"), ("valide",))
+        return out
+
+    reports = []
+    for modified, name in selected:
+        relative = "releves/rapports/" + name
+        row = {"id": name.removeprefix("validation-autonomie-profondeur-").removesuffix(".json"),
+               "status": "invalid", "origin": "unknown", "case": "unknown",
+               "started_ms": None, "finished_ms": None, "modified_ms": modified // 1000000,
+               "proof_path": relative}
+        try:
+            path = preuve_autorisee(relative, racine)
+            with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb") as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= MAX_CAMPAGNE_DEFENSE:
+                    raise ValueError("invalid report file")
+                raw = stream.read(MAX_CAMPAGNE_DEFENSE + 1)
+            if len(raw) > MAX_CAMPAGNE_DEFENSE:
+                raise ValueError("report too large")
+            obj = json.loads(raw)
+            if not isinstance(obj, dict) or obj.get("schema") != "sawm-autonomy-depth-validation/v1":
+                raise ValueError("unknown schema")
+            _valider_telemetrie(obj)
+            if (obj.get("id") != row["id"] or obj.get("origin") not in {"local_guard", "sawm_pipeline"}
+                    or obj.get("case") not in {"lock", "tamper", "maintenance"}
+                    or obj.get("status") not in {"running", "passed", "failed", "blocked", "error", "interrupted", "not_evaluated"}
+                    or type(obj.get("cloud_requested")) is not bool
+                    or (obj["origin"] == "local_guard" and obj["cloud_requested"])):
+                raise ValueError("invalid report identity or origin")
+            _nombre(obj.get("started_ms"), "started_ms", entier=True)
+            if obj.get("finished_ms") is not None:
+                _nombre(obj["finished_ms"], "finished_ms", minimum=obj["started_ms"], entier=True)
+            for field in ("sawm_effect_applied", "local_guard_effect_applied", "memory_feedback_recorded"):
+                if field in obj and type(obj[field]) is not bool:
+                    raise ValueError("invalid effect flag")
+            for field in ("local_boundaries", "receipts", "verifications", "inspection_steps", "refusals", "limits"):
+                if field in obj and (not isinstance(obj[field], list) or len(obj[field]) > 100):
+                    raise ValueError("invalid report list")
+            row.update(pick(obj, ("id", "status", "origin", "case", "started_ms", "finished_ms", "phase",
+                "cloud_requested", "cloud_rounds_reserved", "sawm_effect_applied", "local_guard_effect_applied",
+                "local_guard_wait_ms", "memory_feedback_recorded", "block_reason", "error_type", "limits")))
+            row["sawm_choice"] = pick(obj.get("sawm_choice"), ("action", "reason", "unknowns"))
+            row["diagnostic"] = pick(obj.get("local_guard_diagnostic"), ("priorite", "recommandation", "raison", "inconnues"))
+            row["local_receipt"] = receipt(obj.get("local_guard_receipt"))
+            row["receipts"] = [receipt(v) for v in obj.get("receipts", [])]
+            row["verifications"] = [pick(v, ("statut", "effet", "temoin", "motif")) for v in obj.get("verifications", [])]
+            row["inspection_steps"] = [pick(v, ("step", "action", "unit", "status", "reason", "unknowns")) for v in obj.get("inspection_steps", [])]
+            row["refusals"] = [pick(v, ("type", "reason")) for v in obj.get("refusals", [])]
+            row["after_before_cleanup"] = pick(obj.get("after_before_cleanup"),
+                ("read_available", "write_available", "reference_matches", "integrity_check", "observed_epoch_ms"))
+            row["unit_before_cleanup"] = pick(obj.get("unit_before_cleanup"), ("ActiveState", "MainPID"))
+            row["witness"] = pick(obj.get("witness"), ("http_status", "healthy"))
+            row["local_boundaries"] = [{**pick(v, ("case", "status", "origin", "expected_reason")),
+                "receipt": receipt(v.get("receipt")), "unit_after": pick(v.get("unit_after"), ("ActiveState",))}
+                for v in obj.get("local_boundaries", []) if isinstance(v, dict)]
+            audit = obj.get("local_guard_audit") or {}
+            row["audit"] = pick(audit.get("audit") if isinstance(audit, dict) else None,
+                ("valide", "seq", "ancre_externe_verifiee", "limite"))
+            cleanup = obj.get("cleanup") or {}
+            if not isinstance(cleanup, dict) or not isinstance(cleanup.get("steps", []), list):
+                raise ValueError("invalid cleanup")
+            row["cleanup"] = {"origin": cleanup.get("origin"), "steps": [pick(v, ("step", "status", "error_type"))
+                for v in cleanup.get("steps", [])[:20]]}
+        except (OSError, ValueError, TypeError, UnicodeError, RecursionError):
+            row = {k: row[k] for k in ("id", "modified_ms", "proof_path")}
+            row.update(status="invalid", origin="unknown", case="unknown", started_ms=None, finished_ms=None,
+                       error="Rapport invalide ou incomplet ; aucun résultat confirmé.")
+        reports.append(row)
+    reports.sort(key=lambda r: (r.get("started_ms") or r["modified_ms"], r["id"]), reverse=True)
+    dates = [r.get("finished_ms") or r.get("started_ms") for r in reports]
+    latest = max((d for d in dates if type(d) is int), default=None)
+    return {**base, "status": "available" if reports else "not_run", "reports": reports,
+            "latest_ms": latest, "omitted": max(0, len(candidates) - len(reports))}
+
+
 def lire_acces_exterieur(racine: pathlib.Path) -> dict:
     """Résumé public d'un essai fixe ; aucune connexion, commande ou exclusion."""
     base = {"schema": "sawm-external-auth-validation/v1", "status": "not_run",
@@ -845,6 +956,10 @@ class Service(BaseHTTPRequestHandler):
                 if url.query:
                     raise ValueError("cette lecture n'accepte aucun paramètre")
                 self._json(200, lire_campagne_defense(self.etat.racine))
+            elif url.path == "/api/autonomie-profondeur":
+                if url.query:
+                    raise ValueError("cette lecture n’accepte aucun paramètre")
+                self._json(200, lire_autonomie_profondeur(self.etat.racine))
             elif url.path == "/api/acces-exterieur":
                 if url.query:
                     raise ValueError("cette lecture n'accepte aucun paramètre")

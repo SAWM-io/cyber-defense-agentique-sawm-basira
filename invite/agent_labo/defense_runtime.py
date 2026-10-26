@@ -287,7 +287,7 @@ def inspect_target(m, target, sensor, observe, evaluate, diagnose):
             'observed_ms':now}
 
 
-def contain(m, item, execute):
+def contain(m, item, execute, *, authorize=None, record_result=None):
     obs = item['identity']
     if item['diagnostic']['recommandation']!='contenir_sous_mandat':
         return None
@@ -302,7 +302,22 @@ def contain(m, item, execute):
         'cible':item['unit'],'generation':m['generation'],'manifest_sha256':m['_sha256'],
         'expected_identity':{'cible':item['unit'],'boot_id':obs['boot_id'],
             'MainPID':str(obs['pid']),'InvocationID':obs['invocation_id'],'ControlGroup':obs['cgroup']}}
-    return execute(request)
+    if 'defense_profondeur' in m:
+        if authorize is None:
+            return {'applique':False,'motif':'garde_locale_autoriseur_absent'}
+        try:
+            request['defense_profondeur_autorisation'] = authorize(request, item)
+        except Exception as exc:
+            cause = str(exc)
+            cause = cause if re.fullmatch(r'(?:garde_locale|defense_profondeur|autorisation|cle)_[a-z0-9_:,]{1,220}', cause) else type(exc).__name__
+            return {'applique':False,'motif':'garde_locale_autorisation_refusee','erreur':cause}
+    receipt = execute(request)
+    if record_result is not None:
+        try:
+            record_result(request, receipt)
+        except Exception:
+            receipt = {**receipt, 'audit_local_resultat':'ecriture_incomplete_a_examiner'}
+    return receipt
 
 
 def atomic_state(value):
@@ -325,6 +340,7 @@ def main():
     from diagnostic_defense import diagnostiquer
     from executeur import appliquer
     sensor, signature, history, attempted = None,None,[],set()
+    authorizer = None
     try:
         while True:
             started = time.monotonic()
@@ -332,6 +348,14 @@ def main():
                      'active':True,'targets':[],'alertes':history[-8:],'limits':LIMITS}
             try:
                 m = trusted_manifest(); scope = targets(m)
+                if 'defense_profondeur' in m and authorizer is None:
+                    try:
+                        from local_guard_authorizer import LocalGuardAuthorizer
+                        authorizer = LocalGuardAuthorizer()
+                    except Exception as exc:
+                        state['autorisation_locale'] = {'active':False,'erreur':type(exc).__name__}
+                if authorizer is not None:
+                    state['autorisation_locale'] = {'active':True,'key_id':authorizer.journal.key_id}
                 paths = sorted({x['path'] for x in scope})
                 next_signature = sensor_signature(paths)
                 if signature != next_signature or (sensor and not sensor.snapshot().get('active')):
@@ -355,7 +379,10 @@ def main():
                         key=(m['_sha256'],target['unit'],obs.get('boot_id'),obs.get('pid'),obs.get('process_start_ticks'))
                         if item['diagnostic']['recommandation']=='contenir_sous_mandat' and key not in attempted:
                             attempted.add(key)
-                            item['action'] = contain(m,item,appliquer)
+                            item['action'] = contain(m,item,appliquer,
+                                authorize=(lambda request, item: authorizer.authorize(request,item,
+                                    sensor.snapshot() if sensor else {'active':False,'events':[]})) if authorizer else None,
+                                record_result=authorizer.record_result if authorizer else None)
                             item['metrics']['action_ms'] = item['action'].get('duree_ms') if item['action'] else None
                             if item['action'] and item['action'].get('applique'):
                                 item['after'] = availability(target['path']) if target['kind']=='sqlite' else integrity(target['path'],target['reference_sha256'])

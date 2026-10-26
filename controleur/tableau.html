@@ -542,6 +542,16 @@
       <p id="alertes-portee" class="petit doux"></p>
       <details class="petit doux"><summary>Comment lire ces points</summary><p>Historique non clos : cela ne signifie pas qu’un incident est encore actif et ne constitue pas un diagnostic de logiciel malveillant. Les dossiers conservent leur dernier état publié ; les alertes de liaison suivent la fraîcheur des mesures. Aucune action ni clôture automatique depuis cette vue.</p></details>
     </section>
+    <details class="carte panneau" id="autonomie-panneau" aria-labelledby="autonomie-titre" style="margin:16px 28px" open>
+      <summary class="ligne bandeau"><h2 id="autonomie-titre">Essais d’autonomie — campagne récente</h2><span id="autonomie-statut" class="jeton etat-attention" role="status">Résultats en attente</span></summary>
+      <div class="panneau-contenu">
+        <p id="autonomie-date" class="petit doux">Aucun rapport récent chargé.</p>
+        <div id="autonomie-compteurs" class="ligne"></div>
+        <p class="petit doux">La garde locale et les décisions SAWM Cloud sont mesurées séparément. Les constats précèdent le nettoyage opérateur ; celui-ci ne compte jamais comme une défense réussie. Ces essais datés ne décrivent pas l’état courant du serveur.</p>
+        <p id="autonomie-erreur" class="petit etat-attention"></p>
+        <div id="autonomie-cas" class="liste"><p class="vide">En attente des résultats de la campagne.</p></div>
+      </div>
+    </details>
     <div class="panneaux-secondaires">
     <details class="carte panneau" aria-label="Protection continue et preuves" style="margin:16px 24px">
       <summary class="ligne bandeau"><h2>Protection continue et preuves</h2></summary>
@@ -2878,6 +2888,88 @@
       }
       // FIN DEFENSE PROFONDEUR
 
+      // DEBUT CAMPAGNE AUTONOMIE
+      let derniereAutonomie = null;
+      function afficherAutonomie(data) {
+        const rows = Array.isArray(data?.reports) ? data.reports : [];
+        const signature = JSON.stringify(data);
+        if (signature === derniereAutonomie) return;
+        derniereAutonomie = signature;
+        const open = new Set([...$("#autonomie-cas").querySelectorAll("details[data-cas][open]")].map(n => n.dataset.cas));
+        const box = vider("#autonomie-cas"), counts = vider("#autonomie-compteurs");
+        texte("#autonomie-statut", data.status === "invalid" ? "Actualisation indisponible" : rows.length + " essais conservés");
+        $("#autonomie-statut").className = "jeton " + (rows.some(r => ["failed","blocked","error","interrupted","invalid"].includes(r.status)) || data.status === "invalid" ? "etat-attention" : "nd");
+        texte("#autonomie-date", "Dernier résultat daté : " + (fini(data.latest_ms) ? heure(data.latest_ms) : "N/D") + " · actualisation avec le tableau de bord" + (data.omitted ? " · " + data.omitted + " rapports plus anciens dans les pièces de preuve" : ""));
+        texte("#autonomie-erreur", data.error || "");
+        const origins = {local_guard:"Garde locale signée", sawm_pipeline:"Pipeline SAWM Cloud", unknown:"Origine non vérifiée"};
+        for (const [origin,label] of Object.entries(origins)) {
+          const items=rows.filter(r => r.origin === origin);
+          if (!items.length && origin === "unknown") continue;
+          const passed=items.filter(r => r.status === "passed").length;
+          counts.append(el("span",label+" : "+passed+" validés / "+items.length+" essais", "jeton"));
+        }
+        if (!rows.length) box.append(el("p", "Aucun essai confirmé ; les archives de septembre ne remplacent pas cette campagne.", "vide"));
+        const cases={lock:"Verrou SQLite",tamper:"Altération de fichier",maintenance:"Maintenance autorisée"};
+        const boundaries={missing_ticket:"Autorisation absente",forged_ticket:"Autorisation falsifiée",maintenance_veto:"Veto de maintenance signée"};
+        const stepNames={stop_fixture:"Arrêt de la fixture",restore_fixture:"Restauration de la fixture",restore_exact_manifest:"Restauration exacte du mandat"};
+        for (const row of rows) {
+          const card=el("details",null,"item");card.dataset.cas=row.id;card.open=open.has(row.id);
+          const summary=el("summary",(cases[row.case] || row.case || "Essai")+" · "+(origins[row.origin] || origins.unknown)+" · "+statutCampagne(row.status));card.append(summary);
+          const line=(label,value)=>card.append(el("p",label+" : "+valeurCampagne(value),"petit"));
+          line("Date",fini(row.started_ms) ? heure(row.started_ms) : "N/D");line("Identifiant",row.id);
+          line("Origine de l’évaluation",row.origin);line("Phase",row.phase);
+          if(row.block_reason || row.error_type || row.error)line("Blocage ou erreur",row.block_reason || row.error_type || row.error);
+          if(row.origin === "sawm_pipeline") {
+            const choice=row.sawm_choice || {};
+            line("Cloud demandé",row.cloud_requested);line("Tours SAWM réservés (pas un nombre d’appels HTTP)",row.cloud_rounds_reserved);
+            line("Choix SAWM",choice.action);line("Justification publique SAWM",choice.reason);
+            line("Variables inconnues",choice.unknowns);line("Action SAWM appliquée",row.sawm_effect_applied);
+            line("Retour d’expérience enregistré",row.memory_feedback_recorded);
+            for(const step of row.inspection_steps || [])line("Inspection "+valeurCampagne(step.step),[step.action,step.status,step.reason].filter(Boolean).join(" · "));
+            for(const refusal of row.refusals || [])line("Réserve du pipeline",[refusal.type,refusal.reason].filter(Boolean).join(" · "));
+          } else if(row.origin === "local_guard") {
+            const diag=row.diagnostic || {};
+            line("Décision de la garde locale",diag.recommandation);line("Motif local",diag.raison);
+            line("Incertitudes locales",diag.inconnues);line("Action locale appliquée",row.local_guard_effect_applied);
+            line("Attente de l’observation locale (ms)",row.local_guard_wait_ms);
+            line("Chaîne signée locale vérifiée dans le rapport",row.audit?.valide);
+            line("Ancre extérieure vérifiée",row.audit?.ancre_externe_verifiee);
+          }
+          const receipts=[...(row.receipts || []),...(row.local_receipt?.action ? [row.local_receipt] : [])];
+          for(const receipt of receipts) {
+            line("Reçu d’exécution",[receipt.action,receipt.cible].filter(Boolean).join(" · "));
+            line("Application / effet vérifié",valeurCampagne(receipt.applique)+" / "+valeurCampagne(receipt.effet_verifie));
+            if(receipt.refusal?.motif)line("Refus de l’exécuteur",receipt.refusal.motif);
+          }
+          for(const check of row.verifications || [])line("Vérification après action",[check.statut,check.effet,check.temoin,check.motif].filter(Boolean).join(" · "));
+          const after=row.after_before_cleanup || {};
+          line("Avant nettoyage · lecture / écriture disponibles",valeurCampagne(after.read_available)+" / "+valeurCampagne(after.write_available));
+          line("Avant nettoyage · empreinte conforme",after.reference_matches);
+          line("Avant nettoyage · état de l’unité",row.unit_before_cleanup?.ActiveState);
+          line("Service témoin disponible",row.witness?.healthy);
+          for(const boundary of row.local_boundaries || [])line("Contrôle négatif · "+(boundaries[boundary.case] || boundary.case),statutCampagne(boundary.status)+" · refus observé : "+valeurCampagne(boundary.receipt?.refusal?.motif)+" · unité : "+valeurCampagne(boundary.unit_after?.ActiveState));
+          const cleanup=row.cleanup || {};
+          line("Nettoyage opérateur distinct",cleanup.steps?.length ? cleanup.steps.map(step=>(stepNames[step.step] || step.step)+" : "+statutCampagne(step.status)).join(" · ") : "non renseigné");
+          for(const limit of row.limits || [])card.append(el("p",limit,"petit doux"));
+          if(typeof row.proof_path === "string" && /^releves\/rapports\/validation-autonomie-profondeur-depth-[a-f0-9]{10}\.json$/.test(row.proof_path)) {
+            const link=el("a","Consulter le rapport de cet essai");link.href="/api/preuve?f="+encodeURIComponent(row.proof_path);link.target="_blank";link.rel="noopener";card.append(link);
+          }
+          box.append(card);
+        }
+      }
+      async function chargerAutonomie() {
+        try {
+          const response=await fetch("/api/autonomie-profondeur",{cache:"no-store",signal:AbortSignal.timeout(4000)});
+          if(!response.ok)throw Error("HTTP "+response.status);
+          const data=await response.json();
+          if(data.schema!=="sawm-autonomy-depth-dashboard/v1" || !Array.isArray(data.reports))throw Error("Contrat inconnu");
+          afficherAutonomie(data);
+        } catch(_) {
+          afficherAutonomie({status:"invalid",reports:[],latest_ms:null,error:"Actualisation indisponible : aucun résultat courant confirmé. Les rapports précédents restent dans les pièces de preuve."});
+        }
+      }
+      // FIN CAMPAGNE AUTONOMIE
+
       async function chargerSecurite() {
         try {
           const r = await fetch("/api/securite", {cache: "no-store", signal: AbortSignal.timeout(4000)});
@@ -2920,10 +3012,10 @@
           dernierSucces = Date.now();
           echecCollecteur = false;
           rendu();
-          await Promise.all([chargerCloud(), chargerOperateur(), chargerSecurite(), chargerCampagneDefense(), chargerAccesExterieur(), chargerDefenseSignee(), chargerExtensions()]);
+          await Promise.all([chargerCloud(), chargerOperateur(), chargerSecurite(), chargerCampagneDefense(), chargerAutonomie(), chargerAccesExterieur(), chargerDefenseSignee(), chargerExtensions()]);
         } catch (e) {
           echecCollecteur = true;
-          await Promise.all([chargerSecurite(), chargerCampagneDefense(), chargerAccesExterieur(), chargerDefenseSignee(), chargerExtensions()]);
+          await Promise.all([chargerSecurite(), chargerCampagneDefense(), chargerAutonomie(), chargerAccesExterieur(), chargerDefenseSignee(), chargerExtensions()]);
           if (!donnees) {
             texte("#lien", "COLLECTEUR INJOIGNABLE");
             $("#lien").className = "jeton etat-ko";

@@ -86,12 +86,33 @@ def identity_digest(request):
     return hashlib.sha256(raw).hexdigest()
 
 
+def local_guard_keys(profile):
+    """Clés locales enrôlées hors modèle ; aucun droit général de contrôleur."""
+    rows = profile.get('gardes_locales', [])
+    if type(rows) is not list or len(rows) > 16:
+        raise ValueError('gardes_locales_invalides')
+    result = {}
+    for row in rows:
+        if type(row) is not dict or set(row) != {'cle_publique', 'unites'}:
+            raise ValueError('garde_locale_invalide')
+        public, units = row['cle_publique'], row['unites']
+        if type(public) is not str or not HEX32.fullmatch(public) or type(units) is not list \
+                or not 1 <= len(units) <= 16 or any(type(u) is not str or not re.fullmatch(
+                    r'labo-[a-z0-9_.-]+\.service', u) for u in units) or len(set(units)) != len(units):
+            raise ValueError('portee_garde_locale_invalide')
+        key_id = hashlib.sha256(bytes.fromhex(public)).hexdigest()
+        if key_id in result or public in profile.get('cles_controleur', []):
+            raise ValueError('cle_partagee_entre_roles')
+        result[key_id] = {'public': bytes.fromhex(public), 'unites': tuple(units)}
+    return result
+
+
 def _keys(manifest):
     if type(manifest) is not dict:
         raise ValueError('manifeste_autorisation_invalide')
     profile = manifest.get('defense_profondeur')
-    if type(profile) is not dict or set(profile) not in (
-            {'profil', 'controles_bloquants'}, {'profil', 'controles_bloquants', 'cles_controleur'}) \
+    if type(profile) is not dict or not {'profil', 'controles_bloquants'} <= set(profile) \
+            or not set(profile) <= {'profil', 'controles_bloquants', 'cles_controleur', 'gardes_locales'} \
             or profile.get('profil') != PROFILE:
         raise ValueError('profil_defense_profondeur_invalide')
     required = profile.get('controles_bloquants')
@@ -99,8 +120,9 @@ def _keys(manifest):
             or any(type(item) is not str or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', item) for item in required) \
             or len(set(required)) != len(required):
         raise ValueError('controles_defense_profondeur_invalides')
-    values = profile.get('cles_controleur')
-    if type(values) is not list or not 1 <= len(values) <= 16 \
+    guards = local_guard_keys(profile)
+    values = profile.get('cles_controleur', [])
+    if type(values) is not list or len(values) > 16 or (not values and not guards) \
             or any(type(value) is not str or not HEX32.fullmatch(value) for value in values) \
             or len(set(values)) != len(values):
         raise ValueError('cles_controleur_absentes_ou_invalides')
@@ -124,6 +146,7 @@ def verify_authorization(envelope, request, manifest, now_ms):
     """Refuser par défaut, sans confiance dans un booléen ou une clé de la requête."""
     now = _clock(now_ms)
     keys = _keys(manifest)
+    guards = local_guard_keys(manifest['defense_profondeur'])
     expected = _bound(request)
     if manifest.get('_sha256') != expected['manifest_sha256']:
         raise ValueError('manifeste_autorisation_non_courant')
@@ -140,8 +163,23 @@ def verify_authorization(envelope, request, manifest, now_ms):
     issued, expires = _clock(payload['issued_ms']), _clock(payload['expires_ms'])
     if not 0 < expires-issued <= MAX_VALIDITY_MS or not issued <= now < expires:
         raise ValueError('autorisation_future_expiree_ou_duree_invalide')
-    if type(key_id) is not str or not HEX32.fullmatch(key_id) or key_id not in keys:
+    if type(key_id) is not str or not HEX32.fullmatch(key_id) or key_id not in keys.keys() | guards.keys():
         raise ValueError('cle_controleur_non_enrolee')
+    if key_id in guards:
+        guard = guards[key_id]
+        targets = (manifest.get('defense_fichiers') or {}).get('targets', [])
+        matching = [t for t in targets if type(t) is dict and t.get('unit') == expected['cible']
+                    and t.get('automatic_containment') is True]
+        if (manifest.get('defense_fichiers') or {}).get('enabled') is not True \
+                or expected['action'] != 'arreter-service' or not expected['decision_id'].startswith('local-file-') \
+                or expected['cible'] not in guard['unites'] or len(matching) != 1 \
+                or type(request.get('expected_identity')) is not dict \
+                or not request['expected_identity'] \
+                or expected['cible'] not in manifest.get('unites_autorisees', []) \
+                or expected['cible'] in manifest.get('unites_protegees', []) \
+                or 'arreter-service' not in (manifest.get('veille') or {}).get('actions_automatiques', []):
+            raise ValueError('autorisation_hors_portee_garde_locale')
+        keys[key_id] = guard['public']
     if type(signature) is not str or not HEX64.fullmatch(signature):
         raise ValueError('signature_autorisation_invalide')
     try:

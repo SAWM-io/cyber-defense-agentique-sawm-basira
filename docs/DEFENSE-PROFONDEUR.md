@@ -1,6 +1,6 @@
 # Défense en profondeur — profil technique ISO 27001 / CIS
 
-[README](../README.md) · [Référentiels et versions](REFERENTIELS.md) · [Modèle de sécurité](SECURITY-MODEL.md)
+[README](../README.md) · [Référentiels et versions](REFERENTIELS.md) · [Modèle de sécurité](SECURITY-MODEL.md) · [Garde locale signée](GARDE-LOCALE-SIGNEE.md)
 
 Ce profil apporte des contrôles techniques continus et des preuves pour un audit. Il ne déclare pas l’entreprise ni le produit « certifié ISO 27001 ». ISO 27001 porte sur un système de management avec un périmètre, des responsabilités, une analyse de risques et des vérifications organisationnelles. Les contrôles ci-dessous sont notre sélection technique ; ce n’est ni l’ensemble des CIS Controls ni un CIS Benchmark certifié.
 
@@ -58,6 +58,12 @@ python -c 'from pathlib import Path; print((Path.home()/".sawm-labo/audit-ed2551
 6. Tester les refus puis, seulement dans les ressources déléguées, activer `--cloud --apply` avec la veille permanente. Une maintenance autorisée doit toujours être préservée. Les scripts de scénarios manuels ne reçoivent pas de ticket automatiquement.
 
 Un administrateur peut révoquer une clé dans le manifeste et changer sa génération. L’ancien ticket est lié à l’ancienne empreinte, donc ne permet plus une nouvelle exécution. Cette procédure ne remplace pas un annuaire, une MFA, un HSM ou une gestion institutionnelle des identités.
+
+## Continuité de la protection locale
+
+Une garde de fichiers déjà active doit recevoir son propre raccordement signé avant l'activation du profil : aucune exemption implicite ne contourne la vérification de l'exécuteur. Le [guide de la garde locale](GARDE-LOCALE-SIGNEE.md) décrit l'enrôlement d'une clé distincte, sa portée limitée à certaines unités et à l'arrêt de service, la réinspection des preuves et le journal local signé.
+
+Cette voie fonctionne sans appel Cloud lorsque ses observations et son mandat sont valides. Les décisions locales restent distinguées de celles de SAWM. Après l'écriture durable d'une demande, l'exécuteur revérifie aussi l'identité et la maintenance : une fenêtre autorisée qui vient de commencer ne doit pas être ignorée à cause d'un contrôle antérieur.
 
 ## Autonomie déléguée : décider sans confirmation répétée
 

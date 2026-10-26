@@ -130,17 +130,41 @@ class VeilleFilePipelineTests(unittest.TestCase):
             try:
                 watch=veille.Veille(manifest,journal,cloud=True,appliquer=True,poster=lambda *args:state,
                                    lire_manifest=lambda:manifest,fin=time.monotonic()+300)
-                with patch.object(watch,'inspecter_autorise',side_effect=[copy.deepcopy(result),copy.deepcopy(result)]) as inspect, \
+                clock=[time.time()];order=[];observations=[]
+                write_event=journal.ecrire
+                def inspect_fresh(action, unit, *, contexte=None):
+                    order.append('inspection')
+                    fresh=copy.deepcopy(result);fresh['observed_epoch_ms']=int(clock[0]*1000)
+                    observations.append(fresh)
+                    return fresh
+                def write_then_delay(genre, **values):
+                    write_event(genre, **values)
+                    if genre=='inspection_fichiers_avant_action':
+                        order.append('journal_inspection')
+                        clock[0]+=2  # Le premier relevé dépasse désormais son TTL de 1,5 s.
+                def choose(*args, **kwargs):
+                    order.append('cloud');return d,{}
+                def apply(*args, **kwargs):
+                    order.append('execution');return {'applique':True}
+                with patch.object(watch,'inspecter_autorise',side_effect=inspect_fresh) as inspect, \
                      patch('connecteur.pont_memoire.PontMemoire',return_value=bridge), \
-                     patch.object(validation,'decision_cloud',return_value=(d,{})) as cloud, \
-                     patch.object(validation,'execute',return_value={'applique':True}) as execute, \
+                     patch.object(validation,'decision_cloud',side_effect=choose) as cloud, \
+                     patch.object(validation,'execute',side_effect=apply) as execute, \
+                     patch.object(journal,'ecrire',side_effect=write_then_delay), \
+                     patch.object(veille.time,'time',side_effect=lambda:clock[0]), \
                      patch.object(verification_action,'observer_ressource',return_value=before), \
                      patch.object(verification_action,'verifier_action',return_value={'statut':'verifie','effet':'arret_unite_verifie','temoin':'disponible'}):
                     watch.analyser_cloud(incident)
                 policy=cloud.call_args.kwargs['politique_locale']['database_policy']
                 self.assertFalse(policy['write_authorized'])  # fake telemetry grant was ignored
                 self.assertTrue(policy['write_requires_authorization'])
-                self.assertEqual(inspect.call_count,2)
+                self.assertEqual(inspect.call_count,3)
+                for call in inspect.call_args_list:
+                    self.assertEqual(call.args,('inspecter-base',UNIT))
+                    self.assertEqual(call.kwargs,{'contexte':{'object_path':PATH}})
+                self.assertEqual(order,['inspection','cloud','inspection','journal_inspection','inspection','execution'])
+                self.assertFalse(f.valide(observations[1],manifest,UNIT,now_ms=int(clock[0]*1000)))
+                self.assertTrue(f.valide(observations[2],manifest,UNIT,now_ms=int(clock[0]*1000)))
                 execute.assert_called_once()
                 events=[json.loads(line)['type'] for line in journal.path.read_text().splitlines()]
                 self.assertLess(events.index('inspection_fichiers_avant_action'),events.index('avant_execution'))

@@ -47,6 +47,44 @@ class ExecutorMaintenanceTests(unittest.TestCase):
         self.assertEqual(self.calls[0]['etat'], 'refuse_maintenance')
         self.action.assert_not_called()
 
+    def test_maintenance_becoming_active_during_fsync_is_preserved(self):
+        clock = [NOW]
+        future = {**self.payload, 'not_before_ms': NOW+100}
+        self.manifest['maintenance']['mandates'] = [m.signer(future, self.key)]
+        def journal(row):
+            self.calls.append(row)
+            if row['etat'] == 'en_cours':
+                clock[0] = NOW+150
+        with patch.object(m.time, 'time', side_effect=lambda: clock[0]/1000), \
+                patch.object(ex, '_journal', side_effect=journal):
+            receipt = ex.appliquer(self.request)
+        self.assertFalse(receipt['applique'])
+        self.assertEqual(receipt['issue'], 'non_appliquee')
+        self.assertEqual(receipt['refus']['motif'], 'maintenance_signee_preservee')
+        self.assertTrue(receipt['maintenance']['veto'])
+        self.assertEqual(self.calls[-1]['etat'], 'termine')
+        self.action.assert_not_called()
+
+    def test_identity_is_rechecked_after_durable_receipt(self):
+        self.manifest['maintenance']['revoked_mandates'] = [self.payload['mandate_id']]
+        after_fsync = [False]
+        def journal(row):
+            self.calls.append(row)
+            if row['etat'] == 'en_cours':
+                after_fsync[0] = True
+        def identity(request, manifest):
+            if after_fsync[0]:
+                raise ex.Refus('identite_attendue_changee', 'MainPID')
+            return manifest
+        with patch.object(ex, '_journal', side_effect=journal), \
+                patch.object(ex, 'verifier_identite_attendue', side_effect=identity) as check:
+            receipt = ex.appliquer(self.request)
+        self.assertEqual(check.call_count, 2)
+        self.assertFalse(receipt['applique'])
+        self.assertEqual(receipt['issue'], 'non_appliquee')
+        self.assertEqual(receipt['refus']['motif'], 'identite_attendue_changee')
+        self.action.assert_not_called()
+
     def test_revoked_expired_or_forged_mandate_does_not_override_existing_action_right(self):
         for case in ('revoked', 'expired', 'forged'):
             original = copy.deepcopy(self.manifest)
