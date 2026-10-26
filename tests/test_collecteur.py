@@ -215,17 +215,37 @@ class HoteTests(unittest.TestCase):
             else:
                 text = '1.0 1024'
             return type('Result', (), {'stdout': text, 'returncode': 0})()
-        with patch.object(c.subprocess, 'run', side_effect=commande):
+        with patch.object(c.sys, 'platform', 'darwin'), \
+                patch.object(c, 'LOCAL_VM', False), \
+                patch.object(c.subprocess, 'run', side_effect=commande):
             h = c.mesurer_hote(None)
         self.assertEqual(h['qemu']['pid'], 43)
         self.assertEqual(h['qemu']['rss_o'], 2048 * 1024)
         self.assertEqual(h['qemu']['cpu_pct'], 7)
 
     def test_qemu_introuvable_reste_inconnu(self):
-        with patch.object(c.subprocess, 'run', return_value=type('Result', (), {'stdout': '42 95.0 9000 /x/qemu-aarch64-softmmu -uuid AUTRE-VM', 'returncode': 0})()):
+        with patch.object(c.sys, 'platform', 'darwin'), \
+                patch.object(c, 'LOCAL_VM', False), \
+                patch.object(c.subprocess, 'run', return_value=type('Result', (), {'stdout': '42 95.0 9000 /x/qemu-aarch64-softmmu -uuid AUTRE-VM', 'returncode': 0})()):
             h = c.mesurer_hote(None)
         self.assertIsNone(h['qemu']['cpu_pct'])
         self.assertIsNone(h['qemu']['pid'])
+
+    def test_linux_ou_vm_locale_ne_sonde_pas_hyperviseur_mac(self):
+        for platform, local_vm in (('linux', False), ('linux', True), ('darwin', True)):
+            with self.subTest(platform=platform, local_vm=local_vm), \
+                    patch.object(c.sys, 'platform', platform), \
+                    patch.object(c, 'LOCAL_VM', local_vm), \
+                    patch.object(c.subprocess, 'run', return_value=type('Result', (), {'stdout': '1.5 1024', 'returncode': 0})()) as run:
+                h = c.mesurer_hote(None)
+                run.assert_called_once_with(
+                    ['ps', '-o', '%cpu=,rss=', '-p', str(c.os.getpid())],
+                    capture_output=True, text=True, timeout=3,
+                )
+                self.assertEqual(h['controleur'], {'cpu_pct': 1.5, 'rss_o': 1024 * 1024})
+                self.assertIsNone(h['qemu']['pid'])
+                self.assertIsNone(h['qemu']['cpu_pct'])
+                self.assertIsNone(h['vm_statut'])
 
 
 if __name__ == '__main__':

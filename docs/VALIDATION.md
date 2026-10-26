@@ -4,6 +4,14 @@
 
 Ce document décrit les vérifications de **Cyber Defense Agentique SAWM&Basira** avant publication. Une réussite des tests logiciels ne constitue pas une certification de détection ni une preuve de disponibilité en production.
 
+## Mise à jour du 26 octobre 2026
+
+**676 tests locaux et 10 tests de portabilité réussis** sur macOS / Python 3.14.4, sans échec ni erreur, avec les sources inchangées pendant l’exécution.
+
+Le premier passage Linux a révélé un test qui supposait un hôte Mac : il attendait un processus QEMU/UTM alors que le collecteur ignore volontairement cette mesure sur Linux. Les tests spécifient désormais leur plateforme. Un contrôle supplémentaire vérifie qu’en mode Linux ou VM locale, seul le processus du contrôleur est mesuré et aucun outil UTM n’est appelé. Les assertions d’UUID, de PID, de RAM et de CPU du cas Mac sont conservées.
+
+La [CI publique](https://github.com/SAWM-io/cyber-defense-agentique-sawm-basira/actions/workflows/test.yml) exécute les suites et les contrôles de publication sous Linux / Python 3.11, 3.12 et 3.13. Consulter le résultat du commit utilisé : les essais locaux ne remplacent pas ces résultats Linux.
+
 ## Suite locale du 24 octobre 2026
 
 Commande exécutée depuis la racine du dépôt :

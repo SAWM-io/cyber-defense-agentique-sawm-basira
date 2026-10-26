@@ -1,5 +1,12 @@
 # Changes
 
+## 0.1.1 - 2026-10-26
+
+- Make Mac hypervisor tests independent of the CI host operating system.
+- Verify Linux and local-VM host sampling does not invoke UTM or scan Mac QEMU processes.
+- Show individual test failures in CI while retaining the private local test report.
+- Run all three Python validation jobs even when one fails.
+
 ## 0.1.0 - 2026-10-24
 
 Initial standalone client integration, extracted from the Salle des Machines lab.
