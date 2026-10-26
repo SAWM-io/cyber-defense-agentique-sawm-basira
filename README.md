@@ -22,6 +22,8 @@ Le dépôt contient les capteurs Linux, le connecteur Cloud, le contrôleur, l'e
 
 Fonctionnement et schéma d’architecture, capacités, résultats sur VM Linux avec le Cloud réel, auditabilité, défense en profondeur, repères **ISO/IEC 27001, 27002 et 27035-1**, base **CIS Controls v8.1** et correspondances **MITRE D3FEND**. Le rapport distingue les décisions SAWM des protections locales et les essais validés des points à compléter. Ces correspondances ne constituent pas une certification.
 
+**[Article prêt pour Medium — utiliser Basira et SAWM pour défendre un serveur](docs/articles/BASIRA-CYBERDEFENSE-MEDIUM.md)** : cas concret, architecture et intégration aux API Cloud.
+
 Les [preuves de campagne](docs/VALIDATION-VM-2026-10-26.md) précisent le périmètre. Le PDF est reproductible avec sa [source](scripts/build_defense_report.py) :
 
 ```bash

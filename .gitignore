@@ -22,3 +22,7 @@ fixtures/
 *.mmdb
 build/
 dist/
+
+# Generated PDF previews and local output; published report lives in docs/rapports.
+/tmp/pdfs/
+/output/pdf/
