@@ -46,8 +46,11 @@ de quatre tours SAWM par heure a été conservé, y compris les tentatives écho
   le worker était arrêté après OOM, et des compteurs de limitation avaient perdu
   leur expiration. Les services ont été repris avec des ressources bornées ;
   les fenêtres normales ont été restaurées sans remise à zéro des compteurs.
-  Un correctif atomique de l’incrément et de l’expiration a été préparé et testé ;
-  sa livraison Cloud est distincte de ce déploiement du laboratoire.
+  Le correctif atomique de l’incrément et de l’expiration est testé et déployé
+  dans une image dérivée du service Cloud en cours. Les 20 montages en lecture
+  seule, les trois réseaux, les variables et le durcissement sont conservés.
+  Les routes de santé et de disponibilité répondent après déploiement ; le
+  conteneur précédent est conservé arrêté pour un retour arrière.
 
 Les tentatives initiales bloquées ou échouées sont conservées dans les preuves.
 Elles ne sont pas remplacées par les essais réussis.

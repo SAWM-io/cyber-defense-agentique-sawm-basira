@@ -1,0 +1,2 @@
+# Optional dependency for the public PDF generator.
+reportlab>=4.4,<5

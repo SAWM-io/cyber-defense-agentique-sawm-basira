@@ -16,6 +16,20 @@ Le dépôt contient les capteurs Linux, le connecteur Cloud, le contrôleur, l'e
 
 ![Fonctionnement de la défense agentique SAWM et Basira](docs/assets/architecture.png)
 
+## Rapport client et résultats vérifiés
+
+**[Lire le rapport PDF — Cyberdéfense agentique SAWM & Basira](docs/rapports/SAWM-Basira-Cyberdefense-Agentique-2026-10-26.pdf)** · Édition du 26 octobre 2026, 10 pages.
+
+Fonctionnement et schéma d’architecture, capacités, résultats sur VM Linux avec le Cloud réel, auditabilité, défense en profondeur, repères **ISO/IEC 27001, 27002 et 27035-1**, base **CIS Controls v8.1** et correspondances **MITRE D3FEND**. Le rapport distingue les décisions SAWM des protections locales et les essais validés des points à compléter. Ces correspondances ne constituent pas une certification.
+
+Les [preuves de campagne](docs/VALIDATION-VM-2026-10-26.md) précisent le périmètre. Le PDF est reproductible avec sa [source](scripts/build_defense_report.py) :
+
+```bash
+python -m pip install -r requirements-report.txt
+python scripts/build_defense_report.py
+# Résultat : output/pdf/SAWM-Basira-Cyberdefense-Agentique-2026-10-26.pdf
+```
+
 ## À quoi cela sert ?
 
 | Situation | Ce que l'intégration permet |
