@@ -34,6 +34,7 @@ import capteur_fichiers
 import jetons
 import auth_guard
 import ssh_observation
+import posture_securite
 from auth_campaigns import campagnes_auth
 try:
     from geoip_context import GeoIPContext
@@ -672,6 +673,7 @@ def echantillon(sequence: int) -> dict:
         "reseau": reseau(),
         "tranches": tranches,
         "capteurs": capteurs(),
+        "posture_securite": posture_securite.snapshot(),
         "service_temoin": service_temoin(),
         "recepteur": recepteur(),
         "connexions": connexions(),

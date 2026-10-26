@@ -69,16 +69,22 @@ print(json.dumps({'generation':MANIFEST_DATA['generation']}))'''
 def describe():
     return vm.json_code("import subprocess,json\np=subprocess.run(['/usr/bin/python3','/opt/sawm-labo/executeur/executeur.py','--describe'],capture_output=True,text=True);print(p.stdout)")
 
-def execute(decision,run,attendu=None):
+def identite_execution(attendu):
+    unite=attendu.get('unite') or {}
+    return {'cible':attendu.get('cible'),'boot_id':attendu.get('boot_id'),
+            **{k:unite.get(k) for k in ('InvocationID','MainPID','ControlGroup')}}
+
+
+def execute(decision,run,attendu=None,defense_authorisation=None):
     if not decision.executable:return {'applique':False,'refus':decision.refus}
     d=describe()
     req={'decision_id':decision.decision_id,'action':decision.proposition.action,
          'cible':decision.proposition.cible,'generation':run,'run_id':run,
          'manifest_sha256':d['manifest_sha256']}
     if attendu is not None:
-        unite=attendu.get('unite') or {}
-        req['expected_identity']={'cible':attendu.get('cible'),'boot_id':attendu.get('boot_id'),
-            **{k:unite.get(k) for k in ('InvocationID','MainPID','ControlGroup')}}
+        req['expected_identity']=identite_execution(attendu)
+    if defense_authorisation is not None:
+        req['defense_profondeur_autorisation'] = defense_authorisation
     return vm.json_code("import subprocess,json\np=subprocess.run(['/usr/bin/python3','/opt/sawm-labo/executeur/executeur.py'],input="+repr(json.dumps(req))+",capture_output=True,text=True,timeout=30);print(p.stdout)",timeout=40)
 
 MEMORY_CONTEXT_SCHEMA='sawm-incident-memory/v1'

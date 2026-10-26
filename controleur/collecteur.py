@@ -413,6 +413,8 @@ class EtatSecurite:
                 val = obj.get(name)
                 out[name] = None if val is None else _nombre(val, name, maximum=100000, entier=True)
             out['analyse_en_cours'] = obj.get('analyse_en_cours') is True
+            from controleur.defense_profondeur import project
+            out['defense_profondeur'] = project(obj.get('defense_profondeur'), now_ms=self.horloge()*1000)
             out['erreur'] = None if out['active'] else 'Veille arrêtée, dégradée ou battement périmé'
             return out
         except (OSError, ValueError, TypeError, UnicodeError):

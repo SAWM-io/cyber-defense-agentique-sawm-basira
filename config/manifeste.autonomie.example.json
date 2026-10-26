@@ -1,0 +1,26 @@
+{
+  "generation": "customer-autonomy-example-v1",
+  "unites_autorisees": ["labo-demo.service"],
+  "unites_protegees": ["ssh.service", "sshd.service", "labo-temoin.service", "labo-telemetrie.service"],
+  "tranches_autorisees": [],
+  "actions_par_unite": {
+    "labo-demo.service": ["geler-transfert", "arreter-service", "limiter-cpu"]
+  },
+  "bac_fixtures": "/opt/sawm-labo/fixtures",
+  "reference_fixtures": "/opt/sawm-labo/reference",
+  "quota_cpu_pct": 20,
+  "fenetre_verification_s": 2,
+  "veille": {
+    "actions_automatiques": ["geler-transfert", "arreter-service", "limiter-cpu"],
+    "unites_connues": ["ssh.service", "sshd.service", "labo-temoin.service", "labo-telemetrie.service", "labo-demo.service"],
+    "unites_surveillees": ["labo-demo.service"],
+    "enquete_autonome": true,
+    "sources_connues": [],
+    "reseau_hors_baseline_autorise": false
+  },
+  "defense_profondeur": {
+    "profil": "industriel-prudent-v1",
+    "controles_bloquants": ["service_temoin"],
+    "cles_controleur": []
+  }
+}

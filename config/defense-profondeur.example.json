@@ -1,0 +1,11 @@
+{
+  "defense_profondeur": {
+    "profil": "industriel-prudent-v1",
+    "controles_bloquants": [
+      "service_temoin",
+      "os_aslr",
+      "os_ssh_empty_passwords"
+    ],
+    "cles_controleur": []
+  }
+}

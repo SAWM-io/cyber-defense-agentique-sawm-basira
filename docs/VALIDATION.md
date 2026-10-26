@@ -4,7 +4,17 @@
 
 Ce document décrit les vérifications de **Cyber Defense Agentique SAWM&Basira** avant publication. Une réussite des tests logiciels ne constitue pas une certification de détection ni une preuve de disponibilité en production.
 
-## Mise à jour du 26 octobre 2026
+## Profil de défense en profondeur — 26 octobre 2026
+
+**736 tests locaux et 10 tests de portabilité réussis**, zéro échec, zéro erreur, sources inchangées pendant l’exécution sur macOS / Python 3.14.4.
+
+Les nouveaux essais couvrent les 12 sondes OS en lecture seule, la péremption des mesures, les contrôles inconnus, la normalisation des unités, la vérification réelle d’un journal Ed25519 et son altération, le rendu et l’export du dashboard, ainsi que la chaîne simulée prévision/décision → veto local → autorisation signée → exécuteur → retour observé. Les signatures sont exercées avec de vraies clés de test : clé inconnue, identité ou cible modifiée, ancien manifeste, ticket absent ou expiré sont refusés ; les mandats de maintenance restent prioritaires.
+
+Ces essais n’appellent pas SAWM Cloud et ne prouvent donc pas la qualité d’une décision produite en direct par le modèle sur un serveur client. La CI Linux exécute aussi une lecture OS réelle, sans modification ; son résultat distingue réglages satisfaits, écarts et données indisponibles sur le runner, sans le déclarer conforme.
+
+Le manifeste autonome d’exemple est vérifié : enquête activée, une seule unité déléguée, aucune action possible sans enrôlement de clé. Le dashboard et `/api/securite` ont répondu HTTP 200 sur un port local distinct, avec le panneau de posture présent, sans appel Cloud ni modification de la VM de démonstration existante.
+
+## Validation de portabilité précédente — 26 octobre 2026
 
 **676 tests locaux et 10 tests de portabilité réussis** sur macOS / Python 3.14.4, sans échec ni erreur, avec les sources inchangées pendant l’exécution.
 

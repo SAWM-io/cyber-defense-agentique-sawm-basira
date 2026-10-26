@@ -571,6 +571,44 @@ def verifier_actions_unite(action, cible, m):
         raise Refus('action_hors_mandat_unite', action)
 
 
+
+_ACTIONS_SANS_MUTATION = frozenset(('ne-rien-faire', 'ouvrir-dossier',
+                                  'demander-clarification', 'verifier-integrite'))
+_DEFENSE_AUTORISATION_MODULE = None
+
+
+def verifier_defense_profondeur(demande, m):
+    """Toute voie d'exécution rencontre ce contrôle si le profil est installé."""
+    if 'defense_profondeur' not in m or demande.get('action') in _ACTIONS_SANS_MUTATION:
+        return None
+    global _DEFENSE_AUTORISATION_MODULE
+    if _DEFENSE_AUTORISATION_MODULE is None:
+        try:
+            if __package__:
+                from . import defense_autorisation
+                _DEFENSE_AUTORISATION_MODULE = defense_autorisation
+            else:
+                import importlib.util
+                helper = pathlib.Path(__file__).resolve().with_name('defense_autorisation.py')
+                if not helper.is_file() or helper.is_symlink():
+                    raise ValueError('module absent ou symbolique')
+                _protege(helper.stat(), helper)
+                spec = importlib.util.spec_from_file_location('_sawm_executor_depth', helper)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                _DEFENSE_AUTORISATION_MODULE = module
+        except Exception:
+            raise Refus('defense_profondeur_verificateur_indisponible') from None
+    envelope = demande.get('defense_profondeur_autorisation')
+    try:
+        _DEFENSE_AUTORISATION_MODULE.verify_authorization(
+            envelope, demande, m, int(time.time()*1000))
+    except Exception:
+        raise Refus('defense_profondeur_autorisation_refusee') from None
+    return {'valide': True, 'key_id': envelope['key_id'],
+            'issued_ms': envelope['payload']['issued_ms'], 'expires_ms': envelope['payload']['expires_ms']}
+
+
 def appliquer(demande):
     t0 = time.monotonic()
     recu = {'schema': 'sawm-lab-execution/v2', 'applique': False, 'effet_verifie': False,
@@ -612,11 +650,16 @@ def appliquer(demande):
             if recu['maintenance']['veto']:
                 _journal({**recu, 'etat': 'refuse_maintenance', 'refus': {'motif': 'maintenance_signee_preservee'}})
                 raise Refus('maintenance_signee_preservee', 'opérations observées couvertes par mandats signés actifs')
+            autorisation_defense = verifier_defense_profondeur(demande, m)
+            if autorisation_defense is not None:
+                recu['defense_profondeur'] = autorisation_defense
             # Entrée durable AVANT mutation : un crash n'autorise jamais sa répétition aveugle.
             _journal({**recu, 'etat': 'en_cours'})
             try:
                 if manifeste()['_sha256'] != m['_sha256']:
                     raise Refus('manifeste_modifie_avant_action')
+                # Le fsync précédent ne prolonge pas la durée d'une autorisation.
+                verifier_defense_profondeur(demande, m)
                 recu['effet'] = fn(demande.get('cible'), m, decision_id)
                 recu['applique'] = True
                 recu['effet_verifie'] = recu['effet'].get('effet_verifie') is True

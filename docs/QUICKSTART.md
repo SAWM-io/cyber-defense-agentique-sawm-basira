@@ -129,6 +129,8 @@ python controleur/veille.py --duration 300 --cloud --apply --cloud-per-hour 4
 
 `--apply` ne suffit pas : la liste `veille.actions_automatiques` du manifeste doit inclure les actions déléguées, et la cible/action doit être permise. L'exécuteur revalide le contexte avant chaque effet. Tester aussi le **refus** d'une cible hors manifeste et la préservation d'une maintenance signée.
 
+Pour le profil ISO/CIS, suivre aussi l’[enrôlement du contrôleur et l’exemple d’autonomie](DEFENSE-PROFONDEUR.md) : la signature de courte durée est exigée par l’exécuteur. Le manifeste d’observation n’accorde aucune action ; le manifeste autonome d’exemple doit être adapté aux cibles réelles avant installation.
+
 Ne pas faire tourner en parallèle une campagne de validation qui modifie le manifeste et une veille qui pourrait agir sur les mêmes ressources.
 
 ## 8. Passer en veille continue

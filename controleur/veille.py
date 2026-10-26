@@ -412,7 +412,8 @@ class Journal:
 
 
 def autoriser_action(decision, incident, ancien, courant, etat, appliquer, restant,
-                     *, observation_ressources=None, observation_fichiers=None, reference_fichiers=None):
+                     *, observation_ressources=None, observation_fichiers=None, reference_fichiers=None,
+                     audit_profondeur=None, budget_cloud=None):
     if not appliquer:
         return 'mode_observation_ou_proposition'
     if restant < 125:
@@ -432,6 +433,10 @@ def autoriser_action(decision, incident, ancien, courant, etat, appliquer, resta
         return 'action_non_autorisee_pour_veille'
     if p.cible not in ressources(courant) or p.cible != incident.get('unite'):
         return 'cible_absente_ou_non_correllee'
+    from controleur.defense_profondeur import refuse
+    veto = refuse(courant, etat, audit=audit_profondeur, cloud_budget=budget_cloud)
+    if veto:
+        return veto
     if incident.get('genre') == 'diagnostic_defense_fichiers':
         if p.action != 'arreter-service':
             return 'action_non_qualifiee_pour_incident_fichier'
@@ -495,6 +500,10 @@ class Veille:
         self._dispositions_entity = None
         self._dispositions_mutex = threading.RLock()
         self.perception_serveur = None
+        self.posture_defense = None
+        self._posture_fingerprint = None
+        self._audit_profondeur = None
+        self._audit_profondeur_monotone = None
         if (self.m.get('veille') or {}).get('enquete_autonome') is True:
             from controleur.perception_serveur import PerceptionServeur
             self.perception_serveur = PerceptionServeur()
@@ -587,7 +596,49 @@ class Veille:
         self.observer_disposition(decision.decision_id+':verification', 'verification_reussie',
             {'id': decision.decision_id, 'unit': p.cible}, recu['recu_ms'])
 
+    def audit_defense(self, *, force=False):
+        """Vérification locale, jamais un booléen fourni par SAWM ou un journal OS."""
+        if 'defense_profondeur' not in self.m:
+            return None
+        now = time.monotonic()
+        if not force and self._audit_profondeur is not None \
+                and 0 <= now - self._audit_profondeur_monotone < 10:
+            return self._audit_profondeur
+        result = {'valide': None, 'verifie_a_ms': round(time.time()*1000)}
+        audit = self.journal.audit
+        if audit is not None:
+            try:
+                from controleur.audit_signe import verifier
+                verified = verifier(audit.path, public_key_path=audit.public_key_path)
+                result.update({k: verified.get(k) for k in ('valide', 'ancre_externe_verifiee', 'key_id')})
+            except Exception:
+                result['valide'] = False
+        self._audit_profondeur, self._audit_profondeur_monotone = result, now
+        return result
+
+    def suivre_defense(self, etat):
+        if 'defense_profondeur' not in self.m:
+            return
+        from controleur.defense_profondeur import evaluate, fingerprint
+        report = evaluate(self.m, etat, audit=self.audit_defense(), cloud_budget=self.limite_cloud)
+        self.posture_defense = report
+        digest = fingerprint(report)
+        if digest == self._posture_fingerprint:
+            return
+        self.journal.ecrire('posture_defense_profondeur', rapport=report)
+        self._posture_fingerprint = digest
+        counts = report['counts']
+        attention = counts.get('ecart', 0) + counts.get('inconnu', 0)
+        self.publier('/api/incident', {
+            'id': self.identifiant+'-posture', 'titre': 'Défense en profondeur : couverture technique',
+            'statut': 'a_verifier' if attention else 'resolu', 'gravite': 'information',
+            'run_id': self.identifiant, 'origine': 'Contrôles techniques locaux, sans verdict de conformité',
+            'raison_publique': f"{counts.get('satisfait', 0)} contrôles satisfaits, "
+                f"{counts.get('ecart', 0)} écarts, {counts.get('inconnu', 0)} inconnus. "
+                'Voir le panneau Défense en profondeur pour les sources et dates.'})
+
     def observer(self, etat):
+        self.suivre_defense(etat)
         sante = frais(etat)
         if sante != self.derniere_sante:
             self.journal.ecrire('etat_capteurs', frais=sante, precedent=self.derniere_sante)
@@ -812,6 +863,16 @@ class Veille:
                 self.publier_attention(inc, 'a_revoir',
                     'Manifeste modifié : analyse annulée, autorisations actuelles à vérifier.')
                 return
+            if 'defense_profondeur' in self.m:
+                from controleur.defense_profondeur import evaluate
+                posture = evaluate(courant, self.poster('/api/etat?n=1'),
+                    audit=self.audit_defense(), cloud_budget=self.limite_cloud)
+                inc = {**inc, 'faits': [*inc['faits'], {
+                    'posture_defense_profondeur_observee': {
+                        'observed_ms': posture['observed_ms'],
+                        'manifest_sha256': posture['manifest_sha256'],
+                        'checks': [{'id': c['id'], 'status': c['status']} for c in posture['checks']]},
+                    'limite': 'État technique local, sans droit supplémentaire ni certificat ISO.'}]}
             reference_fichiers = None
             if inc.get('genre') == 'diagnostic_defense_fichiers':
                 paths = {f.get('objet') for f in inc.get('faits',[]) if isinstance(f,dict) and isinstance(f.get('objet'),str)}
@@ -892,9 +953,11 @@ class Veille:
                 observation_fichiers = self.inspecter_autorise('inspecter-base',d.proposition.cible,
                     contexte={'object_path':reference_fichiers.get('object_path') if reference_fichiers else None})
                 self.journal.ecrire('inspection_fichiers_avant_action',incident_id=inc['id'],inspection=observation_fichiers)
+            autorise_a_ms = round(time.time()*1000)
             refus = autoriser_action(d, inc, self.m, dernier, etat, self.appliquer,
                                      self.fin-time.monotonic(), observation_ressources=observation_ressources,
-                                     observation_fichiers=observation_fichiers,reference_fichiers=reference_fichiers)
+                                     observation_fichiers=observation_fichiers,reference_fichiers=reference_fichiers,
+                                     audit_profondeur=self.audit_defense(force=True), budget_cloud=self.limite_cloud)
             if refus:
                 self.journal.ecrire('aucune_action', incident_id=inc['id'], motif=refus)
                 self.publier('/api/decision', {'id': d.decision_id, 'incident_id': inc['id'],
@@ -919,7 +982,26 @@ class Veille:
                         or unit_state.get('ControlGroup') != identity['cgroup']):
                     raise ValueError('identite_changee_avant_execution_fichiers')
             self.journal.ecrire('avant_execution', incident_id=inc['id'], decision_id=d.decision_id, avant=avant)
-            recu = validation.execute(d, dernier['generation'], attendu=avant)
+            if 'defense_profondeur' in dernier:
+                from controleur.defense_profondeur import refuse
+                from invite.executeur.defense_autorisation import sign_authorization
+                final_audit = self.audit_defense(force=True)
+                expired = not 0 <= round(time.time()*1000)-autorise_a_ms < 5000
+                veto = 'defense_profondeur_precontrole_expire' if expired else refuse(
+                    dernier, etat, audit=final_audit, cloud_budget=self.limite_cloud)
+                if veto:
+                    self.journal.ecrire('aucune_action', incident_id=inc['id'], motif=veto)
+                    self.publier_attention(inc, 'a_revoir',
+                        'Intervention suspendue avant signature : '+veto, decision=d, details=faits_choix)
+                    return
+                authorization = sign_authorization(self.journal.audit.key, {
+                    'decision_id': d.decision_id, 'action': d.proposition.action,
+                    'cible': d.proposition.cible, 'manifest_sha256': dernier['_sha256'],
+                    'expected_identity': validation.identite_execution(avant)}, now_ms=autorise_a_ms)
+                recu = validation.execute(d, dernier['generation'], attendu=avant,
+                    defense_authorisation=authorization)
+            else:
+                recu = validation.execute(d, dernier['generation'], attendu=avant)
             self.journal.ecrire('recu_execution', incident_id=inc['id'], recu=recu)
             self.publier('/api/decision', {'id': d.decision_id, 'incident_id': inc['id'],
                 'action': d.proposition.action, 'statut': 'appliquee' if recu.get('applique') else 'refusee',
@@ -974,7 +1056,8 @@ def ecrire_etat(dossier, veille, *, mode, erreur=None):
            'analyse_en_cours': bool(veille and veille.worker and veille.worker.is_alive()),
            'repli_cloud_secondes': max(0, round(veille.indisponible_jusqua-time.monotonic())) if veille else 0,
            'protections_locales': 'indépendantes du Cloud; état des capteurs dans la télémétrie',
-           'journal_signe': bool(veille and veille.journal.audit is not None)}
+           'journal_signe': bool(veille and veille.journal.audit is not None),
+           'defense_profondeur': veille.posture_defense if veille else None}
     tmp = dossier/'etat.tmp'
     tmp.write_text(json.dumps(obj, ensure_ascii=False))
     tmp.chmod(0o600)

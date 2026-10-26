@@ -1,5 +1,15 @@
 # Changes
 
+## 0.2.0 - 2026-10-26
+
+- Add a continuous, read-only defence-in-depth assessment with 12 OS probes and 10 runtime checks.
+- Add a collapsible monochrome posture dashboard and bounded JSON export, with explicit unknown/stale evidence.
+- Require a short-lived, administrator-enrolled Ed25519 authorization for modifying executor actions when the profile is enabled. Bind authorization to decision, target, expected process identity and manifest; retain all maintenance and action checks.
+- Give SAWM the observed posture without granting new rights or claiming ISO certification.
+- Document ISO 27001 / CIS alignment, deployment, institutional responsibilities and remaining validation.
+- Complete the new-installation observation baseline without granting automatic actions.
+- Provide a separate autonomous investigation example with predelegated actions, mandatory key enrollment and documented capacity limits.
+
 ## 0.1.1 - 2026-10-26
 
 - Make Mac hypervisor tests independent of the CI host operating system.

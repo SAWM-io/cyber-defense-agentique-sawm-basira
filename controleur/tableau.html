@@ -198,6 +198,16 @@
         width: 100%;
         margin: 10px 0;
       }
+      .defense-profondeur-compteurs {display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0;}
+      .defense-profondeur-compteur {border:1px solid var(--trait);border-radius:8px;padding:12px;display:grid;gap:5px;}
+      .defense-profondeur-compteur strong {font:24px var(--mono);}
+      .defense-profondeur-compteur span {font-size:12px;color:var(--doux);}
+      .defense-profondeur-barre {display:flex;height:14px;overflow:hidden;border:1px solid #777;border-radius:4px;background:#333;margin:12px 0;}
+      .defense-profondeur-barre .defense-profondeur-satisfait {background:#e7e7e7;}
+      .defense-profondeur-barre .defense-profondeur-ecart {background:#777;}
+      .defense-profondeur-barre .defense-profondeur-inconnu {background:repeating-linear-gradient(135deg,#222,#222 4px,#aaa 4px,#aaa 5px);}
+      .defense-profondeur-barre .defense-profondeur-non_applicable {background:#404040;}
+      #defense-profondeur-controles td {overflow-wrap:anywhere;white-space:normal;max-width:420px;vertical-align:top;}
       .table-scroll {
         overflow: auto;
         max-height: 540px;
@@ -578,6 +588,18 @@
       <div id="extensions-resultats" class="liste"></div>
       <div id="extensions-rapport" class="petit"></div>
       <p class="petit doux">Résultats de campagnes datées, distincts de l’état actuel des protections. Les capacités limitées et les preuves manquantes restent indiquées.</p>
+      </div>
+    </details>
+    <details class="carte panneau" aria-labelledby="defense-profondeur-titre" style="margin:16px 24px">
+      <summary class="ligne bandeau"><h2 id="defense-profondeur-titre">Défense en profondeur</h2><span id="defense-profondeur-statut" class="jeton etat-attention" role="status">État inconnu</span></summary>
+      <div class="panneau-contenu">
+        <p id="defense-profondeur-source" class="petit doux">Aucune évaluation reçue.</p>
+        <div id="defense-profondeur-compteurs" class="defense-profondeur-compteurs"></div>
+        <div id="defense-profondeur-barre" class="defense-profondeur-barre" role="img" aria-label="Résultats indisponibles"></div>
+        <p class="petit doux">Blanc : satisfait · gris : écart · hachures : inconnu · gris sombre : non applicable. Ces contrôles décrivent le périmètre observé, pas une certification ISO ou IEC.</p>
+        <div class="ligne bandeau"><p id="defense-profondeur-manifeste" class="petit doux" style="overflow-wrap:anywhere">Empreinte du manifeste : non disponible</p><button id="defense-profondeur-export" type="button" disabled>Exporter les contrôles JSON</button></div>
+        <div class="table-scroll"><table><thead><tr><th>Contrôle</th><th>Statut</th><th>Source</th><th>Raison</th><th>Date d’observation</th></tr></thead><tbody id="defense-profondeur-controles"><tr><td colspan="5">Aucun contrôle actuel vérifiable.</td></tr></tbody></table></div>
+        <p class="petit doux">L’export reprend uniquement l’évaluation publique affichée. Une donnée manquante, une liaison perdue ou un résultat périmé ne confirme aucune protection actuelle.</p>
       </div>
     </details>
     <details class="carte panneau" aria-labelledby="dispositions-titre" style="margin:16px 24px">
@@ -2758,12 +2780,111 @@
         } catch (_) { afficherExtensions(null); }
       }
 
+      // DEBUT DEFENSE PROFONDEUR
+      let defenseProfondeurSnapshot = null;
+      let defenseProfondeurCurrent = false;
+      const defenseProfondeurStatuts = {
+        satisfait: "Satisfait", ecart: "Écart", inconnu: "Inconnu", non_applicable: "Non applicable",
+      };
+      function normaliserDefenseProfondeur(raw) {
+        if (!raw || raw.schema !== "sawm-defense-profondeur/v1" || raw.certification !== false ||
+            typeof raw.enabled !== "boolean" || typeof raw.stale !== "boolean" ||
+            !Number.isSafeInteger(raw.observed_ms) || raw.observed_ms <= 0 ||
+            typeof raw.profile !== "string" || raw.profile.length > 160 ||
+            typeof raw.manifest_sha256 !== "string" || !/^[a-f0-9]{64}$/i.test(raw.manifest_sha256) ||
+            !Array.isArray(raw.checks) || raw.checks.length === 0 || raw.checks.length > 200 ||
+            !raw.counts || typeof raw.counts !== "object") return null;
+        const checks = [], ids = new Set();
+        const counts = {satisfait: 0, ecart: 0, inconnu: 0, non_applicable: 0};
+        for (const item of raw.checks) {
+          if (!item || !Object.hasOwn(defenseProfondeurStatuts, item.status) ||
+              !["id", "title", "source", "reason"].every(key => typeof item[key] === "string") ||
+              !item.id || item.id.length > 160 || ids.has(item.id) ||
+              !(item.observed_ms === null || (Number.isSafeInteger(item.observed_ms) && item.observed_ms > 0 && item.observed_ms <= raw.observed_ms))) return null;
+          ids.add(item.id);
+          counts[item.status] += 1;
+          checks.push({id: item.id, title: item.title.slice(0, 240), status: item.status,
+            source: item.source.slice(0, 400), reason: item.reason.slice(0, 1600), observed_ms: item.observed_ms});
+        }
+        if (!Object.keys(counts).every(key => Number.isSafeInteger(raw.counts[key]) && raw.counts[key] === counts[key])) return null;
+        return {schema: raw.schema, observed_ms: raw.observed_ms, profile: raw.profile,
+          enabled: raw.enabled, manifest_sha256: raw.manifest_sha256, certification: false,
+          stale: raw.stale, checks, counts};
+      }
+      function defenseProfondeurRecente(snapshot) {
+        const age = snapshot ? Date.now() - snapshot.observed_ms : -1;
+        return !!snapshot && snapshot.stale === false && age >= 0 && age < 15000;
+      }
+      function afficherDefenseProfondeur(raw) {
+        const snapshot = normaliserDefenseProfondeur(raw);
+        defenseProfondeurSnapshot = snapshot;
+        const current = defenseProfondeurRecente(snapshot);
+        defenseProfondeurCurrent = current;
+        const rows = snapshot ? snapshot.checks.map(item => current ? item : {...item, status: "inconnu",
+          reason: "État actuel non confirmé : dernière évaluation ancienne ou périmée. " + item.reason}) : [];
+        const counts = {satisfait: 0, ecart: 0, inconnu: 0, non_applicable: 0};
+        rows.forEach(item => counts[item.status]++);
+        const total = rows.length;
+        texte("#defense-profondeur-statut", !current ? "État inconnu" : counts.ecart ? counts.ecart + " écart(s) à examiner" : "Évaluation reçue");
+        $("#defense-profondeur-statut").className = "jeton " + (!current || counts.ecart || counts.inconnu ? "etat-attention" : "etat-ok");
+        texte("#defense-profondeur-source", snapshot ? "Profil : " + snapshot.profile + " · évalué le " + heure(snapshot.observed_ms) +
+          " · " + (snapshot.enabled ? "profil d’intervention activé" : "profil d’intervention non activé") +
+          (current ? " · observation récente" : " · aucune protection actuelle confirmée") :
+          "Évaluation absente ou invalide. Aucun état de conformité ne peut être déduit.");
+        texte("#defense-profondeur-manifeste", snapshot ? "Empreinte du manifeste : " + snapshot.manifest_sha256 : "Empreinte du manifeste : non disponible");
+        const counters = vider("#defense-profondeur-compteurs"), bar = vider("#defense-profondeur-barre");
+        for (const [key, label] of Object.entries(defenseProfondeurStatuts)) {
+          const metric = el("div", null, "defense-profondeur-compteur defense-profondeur-" + key);
+          metric.append(el("strong", snapshot ? counts[key] : "N/D"), el("span", label));
+          counters.append(metric);
+          if (counts[key] && total) {
+            const segment = el("span", null, "defense-profondeur-" + key);
+            segment.style.width = (100 * counts[key] / total).toFixed(2) + "%";
+            segment.title = label + " : " + counts[key];
+            bar.append(segment);
+          }
+        }
+        bar.setAttribute("aria-label", snapshot ? Object.entries(defenseProfondeurStatuts).map(([key, label]) => label + " : " + counts[key]).join(" ; ") : "Résultats indisponibles");
+        const table = vider("#defense-profondeur-controles");
+        for (const item of rows) {
+          const row = el("tr");
+          row.append(el("td", item.title + " · " + item.id));
+          row.append(el("td", defenseProfondeurStatuts[item.status]));
+          row.append(el("td", item.source || "Source non fournie"));
+          row.append(el("td", item.reason || "Raison non fournie"));
+          row.append(el("td", item.observed_ms === null ? "Non daté" : heure(item.observed_ms)));
+          table.append(row);
+        }
+        if (!rows.length) {
+          const row = el("tr"), cell = el("td", "Aucun contrôle actuel vérifiable. Le collecteur doit transmettre une évaluation valide.");
+          cell.colSpan = 5; row.append(cell); table.append(row);
+        }
+        $("#defense-profondeur-export").disabled = !current;
+      }
+      function actualiserDefenseProfondeur() {
+        if (defenseProfondeurCurrent && !defenseProfondeurRecente(defenseProfondeurSnapshot))
+          afficherDefenseProfondeur(defenseProfondeurSnapshot);
+      }
+      function exporterDefenseProfondeur() {
+        actualiserDefenseProfondeur();
+        if (!defenseProfondeurCurrent || !defenseProfondeurSnapshot) return false;
+        const payload = {...defenseProfondeurSnapshot, exported_at_ms: Date.now()};
+        const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], {type: "application/json"});
+        const url = URL.createObjectURL(blob), link = document.createElement("a");
+        link.href = url; link.download = "sawm-basira-defense-profondeur.json";
+        document.body.append(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        return true;
+      }
+      // FIN DEFENSE PROFONDEUR
+
       async function chargerSecurite() {
         try {
           const r = await fetch("/api/securite", {cache: "no-store", signal: AbortSignal.timeout(4000)});
           if (!r.ok) throw Error("HTTP " + r.status);
           const data = await r.json(), v = data.veille || {}, a = data.audit || {};
           securiteAlertes = {snapshot: v, recu_ms: Date.now(), echec: false};
+          afficherDefenseProfondeur(v.defense_profondeur);
           const noms = {observation:"observation", analyse_cloud:"analyse SAWM", protection_autorisee:"protection autorisée", attente_manifeste:"attente du manifeste", telemetrie_indisponible:"télémétrie indisponible", arretee:"arrêtée", indisponible:"indisponible"};
           texte("#securite-veille", "Veille : " + (noms[v.mode] || "inconnue") + " · battement " + (fini(v.age_ms) ? fmt(v.age_ms / 1000, 1) + " s" : "N/D"));
           $("#securite-veille").className = "jeton " + (v.active === true ? "etat-ok" : "etat-ko");
@@ -2774,6 +2895,7 @@
           texte("#securite-placement", "Copie hors VM : " + (a.copie_hors_invite || "N/D") + ". Un retour arrière conjoint du journal et du checkpoint exige une ancre indépendante.");
         } catch (_) {
           securiteAlertes = {snapshot: securiteAlertes?.snapshot, recu_ms: securiteAlertes?.recu_ms, echec: true};
+          afficherDefenseProfondeur(null);
           texte("#securite-veille", "Veille : état indisponible");
           texte("#securite-audit", "Signatures : NON VÉRIFIÉES");
           $("#securite-veille").className = "jeton etat-ko";
@@ -2833,6 +2955,8 @@
         cloudAvant = null;
         chargerCloud();
       });
+      $("#defense-profondeur-export").addEventListener("click", exporterDefenseProfondeur);
+      setInterval(actualiserDefenseProfondeur, 1000);
       let minuteur;
       function programmer() {
         clearInterval(minuteur);

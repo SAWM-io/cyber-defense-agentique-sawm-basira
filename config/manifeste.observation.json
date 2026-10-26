@@ -1,7 +1,12 @@
 {
   "generation": "customer-observe-v1",
   "unites_autorisees": [],
-  "unites_protegees": ["ssh.service", "sshd.service", "labo-temoin.service", "labo-telemetrie.service"],
+  "unites_protegees": [
+    "ssh.service",
+    "sshd.service",
+    "labo-temoin.service",
+    "labo-telemetrie.service"
+  ],
   "tranches_autorisees": [],
   "actions_par_unite": {},
   "bac_fixtures": "/opt/sawm-labo/fixtures",
@@ -9,8 +14,20 @@
   "fenetre_verification_s": 2,
   "veille": {
     "actions_automatiques": [],
-    "unites_connues": ["ssh.service", "sshd.service", "labo-temoin.service", "labo-telemetrie.service"],
+    "unites_connues": [
+      "ssh.service",
+      "sshd.service",
+      "labo-temoin.service",
+      "labo-telemetrie.service"
+    ],
     "unites_surveillees": [],
-    "enquete_autonome": false
+    "enquete_autonome": false,
+    "sources_connues": [],
+    "reseau_hors_baseline_autorise": false
+  },
+  "defense_profondeur": {
+    "profil": "industriel-prudent-v1",
+    "controles_bloquants": [],
+    "cles_controleur": []
   }
 }

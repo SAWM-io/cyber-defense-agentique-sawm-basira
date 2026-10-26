@@ -68,6 +68,7 @@ def run():
       'invite/charges_test/ledger_temoin.py':'/opt/sawm-labo/charges_test/ledger_temoin.py',
       'provisionnement/systemd/labo-ledger-demo.service':'/etc/systemd/system/labo-ledger-demo.service',
       'invite/executeur/executeur.py':'/opt/sawm-labo/executeur/executeur.py',
+      'invite/executeur/defense_autorisation.py':'/opt/sawm-labo/executeur/defense_autorisation.py',
       'controleur/maintenance_cli.py':'/opt/sawm-labo/controleur/maintenance_cli.py'}
     payload={remote:base64.b64encode((ROOT/local).read_bytes()).decode() for local,remote in files.items()}
     source=(ROOT/'controleur/maintenance.py').read_bytes()

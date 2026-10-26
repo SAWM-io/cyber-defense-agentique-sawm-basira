@@ -40,6 +40,8 @@ Les scénarios du dépôt emploient des données fictives et des charges bornée
 
 **L'autonomie est une délégation explicite.** Une intervention peut être exécutée sans confirmation à chaque incident lorsque le propriétaire l'a autorisée à l'avance. Une phrase du modèle, un nom de fichier ou un journal ne peut jamais lui accorder de nouveaux droits. Le modèle ne dispose pas d'un shell root libre.
 
+Le [profil d’autonomie](docs/DEFENSE-PROFONDEUR.md#autonomie-déléguée--décider-sans-confirmation-répétée) précise les inspections, les actions déléguées et les situations qui doivent remonter à l’opérateur. Son manifeste d’exemple est fourni sans clé enrôlée et n’est jamais appliqué automatiquement.
+
 ## Commencer sans Cloud ni action système
 
 ```bash
@@ -71,10 +73,11 @@ Un tableau de bord démarré ne signifie pas qu'un serveur est protégé : il fa
 | [Architecture](docs/ARCHITECTURE.md) | Rôle de chaque moteur, boucle de décision et circulation des preuves. |
 | [Connexion au Cloud](docs/CLOUD.md) | Espace, entité, principal, scopes, clé, reprises et coûts. |
 | [Exploitation](docs/OPERATIONS.md) | Veille continue, dashboard, budget, panne, audit et reprise. |
+| [Défense en profondeur](docs/DEFENSE-PROFONDEUR.md) | Contrôles continus, profil ISO/CIS, autorisation signée et export des preuves. |
+| [Référentiels](docs/REFERENTIELS.md) | ISO 27001, CIS, NIST : versions, contributions techniques et démarche d’audit. |
 | [Modèle de sécurité](docs/SECURITY-MODEL.md) | Droits locaux, maintenance signée, isolation et couverture réelle. |
 | [Validation](docs/VALIDATION.md) | Résultats locaux, tests reproductibles et vérifications avant mise en service. |
 | [Construire votre agent](docs/EXTENDING.md) | Ajouter un capteur, une inspection, une action ou un nouveau cas métier. |
-| [Validation](docs/VALIDATION.md) | Résultats des tests locaux et périmètre restant à vérifier dans votre environnement. |
 
 ## Ce qui se trouve dans ce dépôt
 
