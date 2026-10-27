@@ -10,7 +10,7 @@ With **SAWM and Basira**, we are developing a cyber defense loop that connects t
 
 The **Cyber Defense Agentique SAWM&Basira** kit is available on [GitHub](https://github.com/SAWM-io/cyber-defense-agentique-sawm-basira). It uses the real Cloud APIs. It enables a team to build a Linux demonstrator and then assess the defensive coverage of its own deployment.
 
-![SAWM and Basira agentic cyber defense architecture](../assets/architecture.png)
+![SAWM and Basira agentic cyber defense architecture](../assets/architecture-en.png)
 
 *The kit connects sensors, memory, investigation, local authorization and verification. In the test campaign described here, the sensors and executor run inside a Linux VM; the controller and dashboard run on the host.*
 
@@ -194,4 +194,4 @@ SAWM and Basira aim to give defense continuity: preserve context, act within exp
 
 **Explore the [public repository](https://github.com/SAWM-io/cyber-defense-agentique-sawm-basira), read the [Cloud guide](https://github.com/SAWM-io/cyber-defense-agentique-sawm-basira/blob/main/docs/CLOUD.md), and prepare your environment in the [Basira workspace](https://basira.sawm.io/espace).**
 
-*This is the English edition of the article. The linked detailed guides, campaign evidence, PDF report and architecture illustration are currently in French; the executable identifiers and commands are shared by both editions.*
+*This is the English edition of the article, with an English architecture illustration. The linked detailed guides, campaign evidence and PDF report are currently in French; the executable identifiers and commands are shared by both editions.*
