@@ -10,6 +10,8 @@
 
 > **English:** A Linux defence reference implementation powered by the public Basira / SAWM Cloud APIs. It combines operating-system observations, scoped memory, bounded agent investigations, locally authorised actions and an auditable dashboard. The LLM proposes; a separate local executor enforces the owner's policy.
 
+**[Read the Medium-ready article in English](docs/articles/BASIRA-CYBERDEFENSE-MEDIUM-EN.md)**: a real VM test, the architecture, and integration with the Cloud APIs.
+
 La **Salle des Machines** est une base d'intégration pour les équipes qui veulent construire leur propre agent de défense : un système qui suit ce qui se passe sur un serveur, rapproche les événements, enquête et peut intervenir dans le périmètre que son propriétaire lui a confié.
 
 Le dépôt contient les capteurs Linux, le connecteur Cloud, le contrôleur, l'exécuteur, le tableau de bord et des tests. Les moteurs propriétaires SAWM, Basira, TSST et ODVL sont consommés **par leurs API publiques** ; leur code serveur n'est pas embarqué ici.
@@ -22,7 +24,7 @@ Le dépôt contient les capteurs Linux, le connecteur Cloud, le contrôleur, l'e
 
 Fonctionnement et schéma d’architecture, capacités, résultats sur VM Linux avec le Cloud réel, auditabilité, défense en profondeur, repères **ISO/IEC 27001, 27002 et 27035-1**, base **CIS Controls v8.1** et correspondances **MITRE D3FEND**. Le rapport distingue les décisions SAWM des protections locales et les essais validés des points à compléter. Ces correspondances ne constituent pas une certification.
 
-**[Article prêt pour Medium — utiliser Basira et SAWM pour défendre un serveur](docs/articles/BASIRA-CYBERDEFENSE-MEDIUM.md)** : cas concret, architecture et intégration aux API Cloud.
+**Article prêt pour Medium — utiliser Basira et SAWM pour défendre un serveur : [Français](docs/articles/BASIRA-CYBERDEFENSE-MEDIUM.md) · [English](docs/articles/BASIRA-CYBERDEFENSE-MEDIUM-EN.md).** Cas concret, architecture et intégration aux API Cloud.
 
 Les [preuves de campagne](docs/VALIDATION-VM-2026-10-26.md) précisent le périmètre. Le PDF est reproductible avec sa [source](scripts/build_defense_report.py) :
 

@@ -1,5 +1,7 @@
 # Basira et SAWM pour une cyberdéfense agentique qui observe, intervient et vérifie
 
+**Français** | [English](BASIRA-CYBERDEFENSE-MEDIUM-EN.md)
+
 **Comment donner à un agent la mémoire des incidents de votre serveur et des moyens d’action contrôlés avec les API Basira et SAWM Cloud.**
 
 Une base de données cesse de répondre. Un processus consomme davantage de ressources. Des connexions échouent, puis recommencent. Pour l’équipe informatique, la difficulté consiste à reconstruire la situation : qui a fait quoi, est-ce autorisé, quelle action préservera le service, et comment vérifier qu’elle a fonctionné ?
